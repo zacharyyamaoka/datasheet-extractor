@@ -70,7 +70,7 @@ def extract(source: pathlib.Path, fields_path: pathlib.Path, option: int, backen
     else:
         raise ValueError(f"--option is 1 or 2, not {option!r}")
     model_name = f"{result.model} via {result.cli_version}" if result.model else None
-    values = document(record, pipeline, model_name, part, verdicts)
+    values = document(record, pipeline, model_name, part, verdicts, checked if option == 2 else None)
     (out / "values.json").write_text(json.dumps(values, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     kept = sum(1 for verdict in verdicts if verdict.kept)
     run.update({"llm_seconds": result.seconds, "llm_error": result.error, "llm_model": result.model,
@@ -112,12 +112,15 @@ def rejudge(out: pathlib.Path) -> dict:
     fields = fields_module.load(pathlib.Path(run["fields"]) if pathlib.Path(run["fields"]).is_absolute()
                                 else pathlib.Path(__file__).resolve().parents[2] / run["fields"])
     source = pathlib.Path(run["source"])
+    checked = None
     if run["option"] == 1:
         bundle = option1.Bundle.load(pathlib.Path(run.get("bundle") or out / "bundle"))
         verdicts, part = option1.judge(output, fields, bundle, run["part_model"])
     else:
-        verdicts, part = option2.judge(output, fields, option2.Source(source, run["media_type"]), run["part_model"])
-    fresh = document(values["source"], values["extractor"]["pipeline"], values["extractor"]["model"], part, verdicts)
+        checked = option2.Source(source, run["media_type"])
+        verdicts, part = option2.judge(output, fields, checked, run["part_model"])
+    fresh = document(values["source"], values["extractor"]["pipeline"], values["extractor"]["model"], part, verdicts,
+                     checked)
     (out / "values.json").write_text(json.dumps(fresh, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     kept = sum(1 for verdict in verdicts if verdict.kept)
     run.update({"proposed": len(verdicts), "kept": kept, "dropped": len(verdicts) - kept, "rejudged": True})

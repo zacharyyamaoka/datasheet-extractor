@@ -173,7 +173,41 @@ def source_record(path: pathlib.Path) -> dict:
     return record
 
 
-def document(source: dict, pipeline: str, model: str | None, part: dict, verdicts: list[Verdict]) -> dict:
+def _place(cite: dict | None, proposed: dict | None, checked=None, quote: str = "") -> str:
+    """Where a value is, for its id: the cite id (Option 1), else `p<page>` (Option 2 PDF/image) or `html`."""
+    cite_id = ((cite or {}).get("id") or "").strip()
+    if cite_id:
+        return cite_id
+    if checked is not None:                             # an Option 2 part: no page of its own, so find the quote
+        if checked.media_type == "text/html":
+            return "html"
+        found = next((n for n, page in enumerate(checked.squashed, 1) if squash(quote) and squash(quote) in page), None)
+        return f"p{found}" if found else "p?"
+    if proposed is not None and "page" in proposed:     # only the image/PDF schema asks the model for a page
+        return f"p{proposed['page']}"
+    return "html"
+
+
+def assign_ids(rows: list[tuple[str, dict, str]]) -> None:
+    """Set row["id"] = "<key>@<place>" on each (key, row, place), suffixing #2, #3 on a repeat in output order.
+    WHY: a human review (review.json, Markdownify CONTRACT §7.1) points at values by id, so an id must be stable for
+    a given file: it depends only on the key, the cite or page, and the order of the output."""
+    seen: dict[str, int] = {}
+    for key, row, place in rows:
+        base = f"{key}@{place}"
+        seen[base] = seen.get(base, 0) + 1
+        row["id"] = base if seen[base] == 1 else f"{base}#{seen[base]}"
+
+
+def document(source: dict, pipeline: str, model: str | None, part: dict, verdicts: list[Verdict],
+             checked=None) -> dict:
+    """`checked`: the Option 2 `Source`, to place a part's quote on a page for its id."""
+    rows = [verdict.to_dict() for verdict in verdicts]
+    part = {name: (dict(entry) if entry else entry) for name, entry in part.items()}
+    ids = [(verdict.key, row, _place(verdict.cite, verdict.proposed)) for verdict, row in zip(verdicts, rows)]
+    ids += [(f"part.{name}", entry, _place(entry.get("cite"), None, checked, entry.get("quote") or ""))
+            for name, entry in part.items() if entry]
+    assign_ids(ids)
     return {"schema": SCHEMA, "source": source,
             "extractor": {"tool": TOOL, "version": VERSION, "model": model, "pipeline": pipeline},
-            "part": part, "values": [verdict.to_dict() for verdict in verdicts]}
+            "part": part, "values": rows}
