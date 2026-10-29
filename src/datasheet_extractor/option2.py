@@ -46,9 +46,11 @@ def media_type_of(path: pathlib.Path) -> str:
         return "image/png"
     if head.startswith(b"\xff\xd8"):
         return "image/jpeg"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
     if re.search(rb"<(!doctype html|html|head|body|meta|div|title)", head, re.IGNORECASE):
         return "text/html"
-    raise ValueError(f"{path}: not a PDF, PNG, JPEG or HTML file")
+    raise ValueError(f"{path}: not a PDF, PNG, JPEG, WebP or HTML file")
 
 
 def render_pages(pdf: pathlib.Path, out_dir: pathlib.Path) -> list[pathlib.Path]:
