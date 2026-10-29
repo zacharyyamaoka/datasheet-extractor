@@ -129,6 +129,8 @@ def main() -> int:
     parser.add_argument("--model", default="claude,codex")
     parser.add_argument("--jobs", type=int, default=6)
     parser.add_argument("--only", help="run only documents whose id contains this")
+    parser.add_argument("--rejudge", action="store_true", help="no LLM: re-run the checker on every finished run's "
+                        "stored model reply (after a checker fix)")
     parser.add_argument("--force", action="store_true", help="re-run even where values.json exists (the old run's "
                         "files are overwritten in place)")
     arguments = parser.parse_args()
@@ -139,6 +141,15 @@ def main() -> int:
         docs += r0_documents()
     if arguments.only:
         docs = [doc for doc in docs if arguments.only in doc["id"]]
+    if arguments.rejudge:
+        done = 0
+        for doc in docs:
+            for directory in sorted((EVAL / doc["set"] / doc["id"]).glob("option*-*")):
+                if (directory / "llm" / "output.json").is_file() and (directory / "run.json").is_file():
+                    cli.rejudge(directory)
+                    done += 1
+        print(f"rejudged {done} runs (no LLM calls)")
+        return 0
     (EVAL).mkdir(parents=True, exist_ok=True)
     (EVAL / "documents.json").write_text(json.dumps(synthetic_documents() + r0_documents(), indent=2) + "\n",
                                          encoding="utf-8")

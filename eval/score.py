@@ -13,7 +13,7 @@ rendered arm):
 - **coverage (recall):** truth values found and kept ÷ required truth values.
 - **location correct:** of the kept true values, those whose grounding contains the value's own word box (PDF/PNG,
   1% slack) or source range (HTML, 2 characters slack) in the harness truth index, and lies within the true block or
-  cell (2% / 8 characters slack) — the cited cell is the right cell, not the table around it.
+  cell (3% / 8 characters slack) — the cited cell is the right cell, not the table around it.
 - **dropped:** proposed values the checker dropped, with reasons grouped; `dropped_true` counts drops that were
   in fact right (what the checker's strictness costs).
 - **seconds per document** (Option 1 includes Markdownify's time on that source), **LLM calls**.
@@ -43,7 +43,7 @@ from datasheet_extractor.values import number_forms, normal  # noqa: E402
 from run import EVAL, HARNESS, robotparts_parts  # noqa: E402
 
 RESULTS = ROOT / "eval" / "results"
-BOX_SLACK, BLOCK_SLACK = 0.01, 0.02
+BOX_SLACK, BLOCK_SLACK = 0.01, 0.03  # WHY 3%: a list item's box from Markdownify includes its bullet glyph, the truth box starts at the text
 RANGE_SLACK, BLOCK_RANGE_SLACK = 2, 8
 REASONS = [
     (r"another number .* sits between|row of values|not tied to a row label", "label not tied to the number (another number between: a row of values)"),

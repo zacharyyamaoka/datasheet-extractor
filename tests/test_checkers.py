@@ -141,3 +141,28 @@ def test_option1_two_pair_rows_and_the_comparison_table():
     other = _check(bundle, {"key": "outer_diameter", "value": "98", "unit": "mm", "raw": "Ф98*61.7", "id": other_row},
                    "AKE40-6 KV90")
     assert not other.kept and "does not name" in other.reasons[0]
+
+
+@needs_harness
+def test_option1_footnote_marker_glued_to_a_label_is_still_the_label():
+    bundle = option1.Bundle.load(HARNESS / "runs" / "mdify" / "07-footnotes" / "pdf" / "bundle")
+    cell = _cell(bundle, "Rated torque2", "Value")
+    kept = _check(bundle, {"key": "rated_torque", "value": "9", "unit": "N·m", "raw": "9 N·m", "id": cell}, "KM80-9")
+    assert kept.kept, kept.reasons
+
+
+J60_BUNDLE = pathlib.Path.home() / ".cache/datasheet-extractor/eval/bundles/f53a5470"
+
+
+@pytest.mark.skipif(not list(J60_BUNDLE.parent.glob("f53a5470*")), reason="the eval cache's J60 page bundle is not here")
+def test_option1_label_block_right_before_a_value_block():
+    bundle = option1.Bundle.load(next(J60_BUNDLE.parent.glob("f53a5470*")) / "bundle")
+    value = next(b for b in bundle.index["blocks"] if b["type"] == "paragraph" and bundle.text(b) == "19.94Nm")
+    kept = _check(bundle, {"key": "peak_torque", "value": "19.94", "unit": "N·m", "raw": "19.94Nm", "id": value["id"]},
+                  "J60-6")
+    assert kept.kept, kept.reasons
+    assert kept.cite["row"] == "Peak Torque"
+    speed = next(b for b in bundle.index["blocks"] if b["type"] == "paragraph" and bundle.text(b) == "24.18rad/s")
+    wrong = _check(bundle, {"key": "peak_torque", "value": "24.18", "unit": "N·m", "raw": "24.18rad/s",
+                            "id": speed["id"]}, "J60-6")
+    assert not wrong.kept

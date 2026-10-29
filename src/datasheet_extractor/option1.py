@@ -43,8 +43,12 @@ UNCITABLE = {"table", "figure", "plot", "diagram"}
 
 # A cell that states a value: it starts with a number (after a sign, a comparison or a diameter mark).
 _VALUE_CELL = re.compile(r"^[\s≤≥<>~≈±+\-−]*[" + bind.DIAMETER_MARKS + r"]?\s*\d")
-# A model designation: starts with a letter, carries a digit ('KM80-9', 'AK10-9', 'V3.0', 'KV60', 'DM-J8009-2EC').
-_DESIGNATION = re.compile(r"(?<![\w.\-/])[A-Za-z][A-Za-z\-]*\d[\w.\-]*")
+# A model designation: one to three letters (and maybe a dash and two more) then a digit ('KM80-9', 'AK10-9',
+# 'AKE40-6', 'V3.0', 'KV60', 'DM-J8009-2EC'). WHY not any word with a digit: a footnote marker glued to a label
+# ('Rated torque2', 'Peak torque1') is a label, and stripping it as a designation hid the label.
+_DESIGNATION = re.compile(r"(?<![\w.\-/])[A-Za-z]{1,3}(?:-?[A-Za-z]{1,2})?\d[\w.\-]*")
+# A label-only block right before a value-only block ('Peak Torque' then '19.94Nm', two paragraphs): its row label.
+MAX_LABEL_BLOCK = 60
 
 
 def run_mdify(source: pathlib.Path, bundle_dir: pathlib.Path) -> tuple[float, str]:
@@ -86,6 +90,19 @@ class Bundle:
     def text(self, block: dict) -> str:
         span = block.get("range")
         return self.markdown[span["start"]:span["end"]] if span else ""
+
+    def label_before(self, block: dict) -> dict | None:
+        """The block right before `block` in the markdown, when it is a short label with no number of its own."""
+        prior = [b for b in self.index["blocks"] if b.get("range") and b["type"] in ("paragraph", "list_item", "heading")
+                 and b["range"]["end"] <= block["range"]["start"]]
+        if not prior:
+            return None
+        label = max(prior, key=lambda b: b["range"]["end"])
+        text = plain(self.text(label))
+        between = self.markdown[label["range"]["end"]:block["range"]["start"]]
+        if len(text) > MAX_LABEL_BLOCK or re.search(r"\d", text) or between.strip():
+            return None
+        return label
 
     def table_of(self, cell_id: str) -> dict | None:
         return next((block for block in self.index["blocks"]
@@ -335,11 +352,21 @@ def check_value(row: dict, fields: dict[str, Field], bundle: Bundle, part_model:
                                f"{' / '.join(model_texts)!r} does not name {part_model!r}")
         return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
     # A prose block: robotparts' binding rule on the block's own text.
-    reading = bind.read(key, value, unit, condition, plain(raw), own, None, tuple(fields.values()), None, part_model)
     if not label_found(field, own):
-        reasons.append(f"{block_id}'s text carries none of {key!r}'s labels")
-    else:
-        reasons += reading.problems
+        label = bundle.label_before(block)
+        # WHY: a spec sheet laid out as label and value in two blocks ('Peak Torque', then '19.94Nm', as DEEP
+        # Robotics' page prints it) is a definition list; its label is the label-only block right before it. The
+        # pair is read as one text, so the binding rule still holds (no other number between them).
+        if label is None or not label_found(field, plain(bundle.text(label))):
+            reasons.append(f"{block_id}'s text carries none of {key!r}'s labels, nor does a label-only block "
+                           "right before it")
+            return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
+        cite["label_id"] = label["id"]
+        cite["row"] = plain(bundle.text(label))
+        own = cite["row"] + " " + own
+        grounding = (label.get("grounding") or []) + grounding
+    reasons += bind.read(key, value, unit, condition, plain(raw), own, None, tuple(fields.values()), None,
+                         part_model).problems
     return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
 
 

@@ -1,0 +1,2351 @@
+{
+  "summary": {
+    "option1/claude": {
+      "documents": 22,
+      "failed": 0,
+      "robotparts_values": 217,
+      "agree": 212,
+      "conflicts": 2,
+      "missing": 3,
+      "recall_of_robotparts": 0.977,
+      "agreement_where_both": 0.991,
+      "new_values": 41,
+      "new_from_multi_model_tables": 15,
+      "kept": 257,
+      "proposed": 265,
+      "dropped": 8,
+      "dropped_reasons": {
+        "no field label in the headers/quote": 7,
+        "other: '9:1' is not a number as printed (digits, one decimal point or comma)": 1
+      },
+      "seconds_per_document": 14.4,
+      "llm_calls": 22,
+      "llm_errors": 0
+    },
+    "option1/codex": {
+      "documents": 22,
+      "failed": 0,
+      "robotparts_values": 217,
+      "agree": 208,
+      "conflicts": 1,
+      "missing": 8,
+      "recall_of_robotparts": 0.959,
+      "agreement_where_both": 0.995,
+      "new_values": 39,
+      "new_from_multi_model_tables": 15,
+      "kept": 250,
+      "proposed": 260,
+      "dropped": 10,
+      "dropped_reasons": {
+        "no field label in the headers/quote": 7,
+        "number not at its key's place in the cell": 2,
+        "other: '24/48' gives nominal_voltage at several conditions; the value must sa": 1
+      },
+      "seconds_per_document": 22.9,
+      "llm_calls": 22,
+      "llm_errors": 0
+    },
+    "option2/claude": {
+      "documents": 22,
+      "failed": 0,
+      "robotparts_values": 217,
+      "agree": 213,
+      "conflicts": 0,
+      "missing": 4,
+      "recall_of_robotparts": 0.982,
+      "agreement_where_both": 1.0,
+      "new_values": 19,
+      "new_from_multi_model_tables": 0,
+      "kept": 232,
+      "proposed": 257,
+      "dropped": 25,
+      "dropped_reasons": {
+        "no text layer to check against (image)": 16,
+        "other: ['uart'] is not printed in raw 'CAN connector'": 5,
+        "unit not printed / wrong unit": 2,
+        "other: '6:1' is not a number as printed (digits, one decimal point or comma)": 1,
+        "no field label in the headers/quote": 1
+      },
+      "seconds_per_document": 15.0,
+      "llm_calls": 22,
+      "llm_errors": 0
+    },
+    "option2/codex": {
+      "documents": 22,
+      "failed": 0,
+      "robotparts_values": 217,
+      "agree": 217,
+      "conflicts": 0,
+      "missing": 0,
+      "recall_of_robotparts": 1.0,
+      "agreement_where_both": 1.0,
+      "new_values": 22,
+      "new_from_multi_model_tables": 0,
+      "kept": 239,
+      "proposed": 257,
+      "dropped": 18,
+      "dropped_reasons": {
+        "no text layer to check against (image)": 16,
+        "quote not on the page": 1,
+        "no field label in the headers/quote": 1
+      },
+      "seconds_per_document": 26.9,
+      "llm_calls": 22,
+      "llm_errors": 0
+    }
+  },
+  "details": {
+    "option1/claude": {
+      "conflicts": [
+        {
+          "part": "aifitlab-8778268278920",
+          "key": "voltage_min",
+          "robotparts": {
+            "value": 18,
+            "unit": "V",
+            "raw": "18V",
+            "quote": "Op voltage range DC 18V~36V"
+          },
+          "ours": [
+            {
+              "value": 12,
+              "unit": "V",
+              "raw": "DC 12V\\~36V",
+              "cite": {
+                "id": "table_cell-9",
+                "row": "Operating Voltage Range",
+                "column": "540g"
+              },
+              "proposed": {
+                "key": "voltage_min",
+                "value": "12",
+                "unit": "V",
+                "raw": "DC 12V\\~36V",
+                "condition": "",
+                "id": "table_cell-9"
+              }
+            }
+          ]
+        },
+        {
+          "part": "cubemars-ake40-6-kv90",
+          "key": "gear_ratio",
+          "robotparts": {
+            "value": 6,
+            "unit": "",
+            "raw": "6",
+            "quote": "Reduction Ratio 6"
+          },
+          "ours": [
+            {
+              "value": 6,
+              "unit": ":1",
+              "raw": "6:1",
+              "cite": {
+                "id": "table_cell-551",
+                "row": "AKE Series Quasi Direct Drive Motor / AKE40-6 KV90",
+                "column": "Reduction Ratio",
+                "multi_model": true
+              },
+              "proposed": {
+                "key": "gear_ratio",
+                "value": "6",
+                "unit": ":1",
+                "raw": "6:1",
+                "condition": "",
+                "id": "table_cell-551"
+              }
+            }
+          ]
+        }
+      ],
+      "missing": [
+        {
+          "part": "aifitlab-8681703899272",
+          "key": "gear_ratio",
+          "robotparts": {
+            "value": 9,
+            "unit": ":1",
+            "quote": "Reduction ratio 9:1"
+          }
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "key": "kv",
+          "robotparts": {
+            "value": 60,
+            "unit": "rpm/V",
+            "quote": "Kv (rpm/V) 60"
+          }
+        },
+        {
+          "part": "aifitlab-8778268278920",
+          "key": "max_output_speed",
+          "robotparts": {
+            "value": 15.49,
+            "unit": "rad/s",
+            "quote": "Peak Speed 15.49rad/s"
+          }
+        }
+      ],
+      "new": [
+        {
+          "part": "aifitlab-8573474373768",
+          "model": "DM-J8009-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN总线",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-20"
+          },
+          "quote": null,
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=104",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8573596401800",
+          "model": "DM-J6006-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN总线",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-20"
+          },
+          "quote": null,
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=102",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8573733240968",
+          "model": "DM-J10010-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN总线",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-20"
+          },
+          "quote": null,
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=107",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8678953713800",
+          "model": "AK10-9 V3.0",
+          "key": "rated_power",
+          "value": 442,
+          "unit": "W",
+          "raw": "442",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-159",
+            "row": "AK Series Robotic Actuator / AK10-9 V3.0 KV60",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v3-0-kv60-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8678953713800",
+          "model": "AK10-9 V3.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-56"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v3-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8679837171848",
+          "model": "AKE60-8",
+          "key": "rated_power",
+          "value": 95,
+          "unit": "W",
+          "raw": "95",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-454",
+            "row": "AKE Series Quasi Direct Drive Motor / AKE60-8 KV80",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ake60-8-kv80-quasi-direct-drive-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8679837171848",
+          "model": "AKE60-8",
+          "key": "rotor_inertia",
+          "value": 647.39,
+          "unit": "g·cm²",
+          "raw": "647.39",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-82",
+            "row": "Pole pairs / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ake60-8-kv80-quasi-direct-drive-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "rated_power",
+          "value": 430,
+          "unit": "W",
+          "raw": "430",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-174",
+            "row": "AK Series Robotic Actuator / AK10-9 V2.0 KV60",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "rotor_inertia",
+          "value": 1002,
+          "unit": "g·cm²",
+          "raw": "1002",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-78",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-101"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "rated_power",
+          "value": 340,
+          "unit": "W",
+          "raw": "340",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-267",
+            "row": "AK Series Robotic Actuator / AK80-6 KV100",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "rotor_inertia",
+          "value": 607,
+          "unit": "g·cm²",
+          "raw": "607",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-76",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "buses",
+          "value": [
+            "uart",
+            "can"
+          ],
+          "unit": "",
+          "raw": "UART/CAN communication interface",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-12"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "rated_power",
+          "value": 230,
+          "unit": "W",
+          "raw": "230",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-204",
+            "row": "AK Series Robotic Actuator / AK80-8 KV60",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "rotor_inertia",
+          "value": 1232.6191,
+          "unit": "g·cm²",
+          "raw": "1232.6191",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-77",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-100"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682594140296",
+          "model": "AK80-9 V3.0",
+          "key": "rated_power",
+          "value": 368,
+          "unit": "W",
+          "raw": "368",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-210",
+            "row": "AK Series Robotic Actuator / AK80-9 V3.0 KV100",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-9-v3-0-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682594140296",
+          "model": "AK80-9 V3.0",
+          "key": "buses",
+          "value": [
+            "can-fd"
+          ],
+          "unit": "",
+          "raw": "Support CAN FD Communication",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-12"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-9-v3-0-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682639523976",
+          "model": "AK80-64",
+          "key": "rated_power",
+          "value": 220,
+          "unit": "W",
+          "raw": "220",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-281",
+            "row": "AK Series Robotic Actuator / AK80-64 KV80",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-64-kv80-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682639523976",
+          "model": "AK80-64",
+          "key": "rotor_inertia",
+          "value": 564.5,
+          "unit": "g·cm²",
+          "raw": "564.5",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-73",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-64-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682639523976",
+          "model": "AK80-64",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-96"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-64-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682649092232",
+          "model": "AK70-10",
+          "key": "rated_power",
+          "value": 230,
+          "unit": "W",
+          "raw": "230",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-297",
+            "row": "AK Series Robotic Actuator / AK70-10 KV100",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak70-10-kv100-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682649092232",
+          "model": "AK70-10",
+          "key": "rotor_inertia",
+          "value": 753.4788,
+          "unit": "g·cm²",
+          "raw": "753.4788",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-73",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak70-10-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682649092232",
+          "model": "AK70-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN cable",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-130"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak70-10-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682672160904",
+          "model": "AK60-6 V3.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-125"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak60-6-v3-0-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "rated_power",
+          "value": 130,
+          "unit": "W",
+          "raw": "130",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-376",
+            "row": "AK Series Robotic Actuator / AK60-6 V1.1 KV140",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "rotor_inertia",
+          "value": 243.5,
+          "unit": "g·cm²",
+          "raw": "243.5",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-72",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN cable",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-129"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682681925768",
+          "model": "AK45-36",
+          "key": "rated_power",
+          "value": 33,
+          "unit": "W",
+          "raw": "33",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-429",
+            "row": "AK Series Robotic Actuator / AK45-36 KV80",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/AK45-36.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682681925768",
+          "model": "AK45-36",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-128"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/AK45-36.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682698440840",
+          "model": "AK45-10",
+          "key": "rated_power",
+          "value": 39,
+          "unit": "W",
+          "raw": "39",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-437",
+            "row": "AK Series Robotic Actuator / AK45-10 KV75",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/AK45-10-robotic-actuatuor.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682699948168",
+          "model": "AK40-10",
+          "key": "rated_power",
+          "value": 59,
+          "unit": "W",
+          "raw": "59",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-455",
+            "row": "AK Series Robotic Actuator / AK40-10 KV170",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak40-10-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682699948168",
+          "model": "AK40-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN cable",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-159"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak40-10-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "model": "J60-6",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-78"
+          },
+          "quote": null,
+          "source_url": "https://www.deeprobotics.cn/en/index/j60.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778268278920",
+          "model": "J60-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-48"
+          },
+          "quote": null,
+          "source_url": "https://www.deeprobotics.cn/en/index/j60.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778268278920",
+          "model": "J60-10",
+          "key": "outer_diameter",
+          "value": 76.5,
+          "unit": "mm",
+          "raw": "76.5mm",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-6",
+            "row": "Dimensions (diameter x height)",
+            "column": "540g"
+          },
+          "quote": null,
+          "source_url": "https://deep-website.oss-cn-hangzhou.aliyuncs.com/app/J60%20Joint.pdf",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778268278920",
+          "model": "J60-10",
+          "key": "axial_length",
+          "value": 72.5,
+          "unit": "mm",
+          "raw": "72.5mm",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-6",
+            "row": "Dimensions (diameter x height)",
+            "column": "540g"
+          },
+          "quote": null,
+          "source_url": "https://deep-website.oss-cn-hangzhou.aliyuncs.com/app/J60%20Joint.pdf",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8863771197576",
+          "model": "AKH70-16",
+          "key": "rated_power",
+          "value": 245,
+          "unit": "W",
+          "raw": "245",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-570",
+            "row": "AKH Series Hollow Shaft Planetary Actuator / AKH70-16 V1.0 KV41",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/akh70-16-v-1-0-kv41-hollow-shaft-planetary-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8863771197576",
+          "model": "AKH70-16",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "Dual CAN Interfaces",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-12"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/akh70-16-v-1-0-kv41-hollow-shaft-planetary-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "cubemars-ake40-6-kv90",
+          "model": "AKE40-6 KV90",
+          "key": "nominal_voltage",
+          "value": 24,
+          "unit": "V",
+          "raw": "24",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-543",
+            "row": "AKE Series Quasi Direct Drive Motor / AKE40-6 KV90",
+            "column": "Rated Voltage (V)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ake40-6-kv90-quasi-direct-drive-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "cubemars-ake40-6-kv90",
+          "model": "AKE40-6 KV90",
+          "key": "rated_power",
+          "value": 50,
+          "unit": "W",
+          "raw": "50",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-544",
+            "row": "AKE Series Quasi Direct Drive Motor / AKE40-6 KV90",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ake40-6-kv90-quasi-direct-drive-actuator.html",
+          "multi_model_table": true
+        }
+      ]
+    },
+    "option1/codex": {
+      "conflicts": [
+        {
+          "part": "aifitlab-8778268278920",
+          "key": "voltage_min",
+          "robotparts": {
+            "value": 18,
+            "unit": "V",
+            "raw": "18V",
+            "quote": "Op voltage range DC 18V~36V"
+          },
+          "ours": [
+            {
+              "value": 12,
+              "unit": "V",
+              "raw": "DC 12V\\~36V",
+              "cite": {
+                "id": "table_cell-9",
+                "row": "Operating Voltage Range",
+                "column": "540g"
+              },
+              "proposed": {
+                "key": "voltage_min",
+                "value": "12",
+                "unit": "V",
+                "raw": "DC 12V\\~36V",
+                "condition": "",
+                "id": "table_cell-9"
+              }
+            }
+          ]
+        }
+      ],
+      "missing": [
+        {
+          "part": "aifitlab-8682649092232",
+          "key": "nominal_voltage",
+          "robotparts": {
+            "value": 48,
+            "unit": "V",
+            "quote": "Rated voltage (V) 24/48"
+          }
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "key": "peak_torque",
+          "robotparts": {
+            "value": 19.94,
+            "unit": "N·m",
+            "quote": "Peak Torque 19.94Nm"
+          }
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "key": "max_output_speed",
+          "robotparts": {
+            "value": 24.18,
+            "unit": "rad/s",
+            "quote": "Peak Speed 24.18rad/s"
+          }
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "key": "mass",
+          "robotparts": {
+            "value": 480,
+            "unit": "g",
+            "quote": "Weight 480g"
+          }
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "key": "nominal_voltage",
+          "robotparts": {
+            "value": 24,
+            "unit": "V",
+            "quote": "STD Operating Voltage DC 24V"
+          }
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "key": "voltage_min",
+          "robotparts": {
+            "value": 18,
+            "unit": "V",
+            "quote": "Op voltage range DC 18V~36V"
+          }
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "key": "voltage_max",
+          "robotparts": {
+            "value": 36,
+            "unit": "V",
+            "quote": "Op voltage range DC 18V~36V"
+          }
+        },
+        {
+          "part": "aifitlab-8778268278920",
+          "key": "max_output_speed",
+          "robotparts": {
+            "value": 15.49,
+            "unit": "rad/s",
+            "quote": "Peak Speed 15.49rad/s"
+          }
+        }
+      ],
+      "new": [
+        {
+          "part": "aifitlab-8573474373768",
+          "model": "DM-J8009-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-20"
+          },
+          "quote": null,
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=104",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8573596401800",
+          "model": "DM-J6006-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-20"
+          },
+          "quote": null,
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=102",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8573733240968",
+          "model": "DM-J10010-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-20"
+          },
+          "quote": null,
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=107",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8678953713800",
+          "model": "AK10-9 V3.0",
+          "key": "rated_power",
+          "value": 442,
+          "unit": "W",
+          "raw": "442",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-159",
+            "row": "AK Series Robotic Actuator / AK10-9 V3.0 KV60",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v3-0-kv60-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8678953713800",
+          "model": "AK10-9 V3.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-56"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v3-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8679837171848",
+          "model": "AKE60-8",
+          "key": "rated_power",
+          "value": 95,
+          "unit": "W",
+          "raw": "95",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-454",
+            "row": "AKE Series Quasi Direct Drive Motor / AKE60-8 KV80",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ake60-8-kv80-quasi-direct-drive-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8679837171848",
+          "model": "AKE60-8",
+          "key": "rotor_inertia",
+          "value": 647.39,
+          "unit": "g·cm²",
+          "raw": "647.39",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-82",
+            "row": "Pole pairs / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ake60-8-kv80-quasi-direct-drive-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "rated_power",
+          "value": 430,
+          "unit": "W",
+          "raw": "430",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-174",
+            "row": "AK Series Robotic Actuator / AK10-9 V2.0 KV60",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "rotor_inertia",
+          "value": 1002,
+          "unit": "g·cm²",
+          "raw": "1002",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-78",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-101"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "rated_power",
+          "value": 340,
+          "unit": "W",
+          "raw": "340",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-267",
+            "row": "AK Series Robotic Actuator / AK80-6 KV100",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "rotor_inertia",
+          "value": 607,
+          "unit": "g·cm²",
+          "raw": "607",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-76",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "UART/CAN communication interface",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-12"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "rated_power",
+          "value": 230,
+          "unit": "W",
+          "raw": "230",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-204",
+            "row": "AK Series Robotic Actuator / AK80-8 KV60",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "rotor_inertia",
+          "value": 1232.6191,
+          "unit": "g·cm²",
+          "raw": "1232.6191",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-77",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-100"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682594140296",
+          "model": "AK80-9 V3.0",
+          "key": "rated_power",
+          "value": 368,
+          "unit": "W",
+          "raw": "368",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-210",
+            "row": "AK Series Robotic Actuator / AK80-9 V3.0 KV100",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-9-v3-0-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682594140296",
+          "model": "AK80-9 V3.0",
+          "key": "buses",
+          "value": [
+            "can-fd"
+          ],
+          "unit": "",
+          "raw": "Support CAN FD Communication",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-12"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-9-v3-0-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682639523976",
+          "model": "AK80-64",
+          "key": "rated_power",
+          "value": 220,
+          "unit": "W",
+          "raw": "220",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-281",
+            "row": "AK Series Robotic Actuator / AK80-64 KV80",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-64-kv80-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682639523976",
+          "model": "AK80-64",
+          "key": "rotor_inertia",
+          "value": 564.5,
+          "unit": "g·cm²",
+          "raw": "564.5",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-73",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak80-64-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682649092232",
+          "model": "AK70-10",
+          "key": "rated_power",
+          "value": 230,
+          "unit": "W",
+          "raw": "230",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-297",
+            "row": "AK Series Robotic Actuator / AK70-10 KV100",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak70-10-kv100-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682649092232",
+          "model": "AK70-10",
+          "key": "rotor_inertia",
+          "value": 753.4788,
+          "unit": "g·cm²",
+          "raw": "753.4788",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-73",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak70-10-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682649092232",
+          "model": "AK70-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-96"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak70-10-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682672160904",
+          "model": "AK60-6 V3.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "Power CAN cable",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-125"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak60-6-v3-0-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "rated_power",
+          "value": 130,
+          "unit": "W",
+          "raw": "130",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-376",
+            "row": "AK Series Robotic Actuator / AK60-6 V1.1 KV140",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "rotor_inertia",
+          "value": 243.5,
+          "unit": "g·cm²",
+          "raw": "243.5",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-72",
+            "row": "Phase / Inertia (gcm2)",
+            "column": null
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-95"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682681925768",
+          "model": "AK45-36",
+          "key": "rated_power",
+          "value": 33,
+          "unit": "W",
+          "raw": "33",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-429",
+            "row": "AK Series Robotic Actuator / AK45-36 KV80",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/AK45-36.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682681925768",
+          "model": "AK45-36",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "Serial CAN Cable x1",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-51"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/AK45-36.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682698440840",
+          "model": "AK45-10",
+          "key": "rated_power",
+          "value": 39,
+          "unit": "W",
+          "raw": "39",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-437",
+            "row": "AK Series Robotic Actuator / AK45-10 KV75",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/AK45-10-robotic-actuatuor.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682698440840",
+          "model": "AK45-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-121"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/AK45-10-robotic-actuatuor.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682699948168",
+          "model": "AK40-10",
+          "key": "rated_power",
+          "value": 59,
+          "unit": "W",
+          "raw": "59",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-455",
+            "row": "AK Series Robotic Actuator / AK40-10 KV170",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak40-10-robotic-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8682699948168",
+          "model": "AK40-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN connector",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-121"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ak40-10-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "model": "J60-6",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-48"
+          },
+          "quote": null,
+          "source_url": "https://www.deeprobotics.cn/en/index/j60.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778268278920",
+          "model": "J60-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-48"
+          },
+          "quote": null,
+          "source_url": "https://www.deeprobotics.cn/en/index/j60.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8863771197576",
+          "model": "AKH70-16",
+          "key": "rated_power",
+          "value": 245,
+          "unit": "W",
+          "raw": "245",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-570",
+            "row": "AKH Series Hollow Shaft Planetary Actuator / AKH70-16 V1.0 KV41",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/akh70-16-v-1-0-kv41-hollow-shaft-planetary-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "aifitlab-8863771197576",
+          "model": "AKH70-16",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "Dual CAN Interfaces for Multi-Actuator Daisy-Chain Configurations",
+          "condition": null,
+          "cite": {
+            "id": "paragraph-12"
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/akh70-16-v-1-0-kv41-hollow-shaft-planetary-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "cubemars-ake40-6-kv90",
+          "model": "AKE40-6 KV90",
+          "key": "nominal_voltage",
+          "value": 24,
+          "unit": "V",
+          "raw": "24",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-543",
+            "row": "AKE Series Quasi Direct Drive Motor / AKE40-6 KV90",
+            "column": "Rated Voltage (V)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ake40-6-kv90-quasi-direct-drive-actuator.html",
+          "multi_model_table": true
+        },
+        {
+          "part": "cubemars-ake40-6-kv90",
+          "model": "AKE40-6 KV90",
+          "key": "rated_power",
+          "value": 50,
+          "unit": "W",
+          "raw": "50",
+          "condition": null,
+          "cite": {
+            "id": "table_cell-544",
+            "row": "AKE Series Quasi Direct Drive Motor / AKE40-6 KV90",
+            "column": "Rated Power (W)",
+            "multi_model": true
+          },
+          "quote": null,
+          "source_url": "https://www.cubemars.com/product/ake40-6-kv90-quasi-direct-drive-actuator.html",
+          "multi_model_table": true
+        }
+      ]
+    },
+    "option2/claude": {
+      "conflicts": [],
+      "missing": [
+        {
+          "part": "aifitlab-8682178379912",
+          "key": "gear_ratio",
+          "robotparts": {
+            "value": 6,
+            "unit": ":1",
+            "quote": "6:1 gear reduction balances speed and dynamics, supporting multi-loop control"
+          }
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "key": "kv",
+          "robotparts": {
+            "value": 60,
+            "unit": "rpm/V",
+            "quote": "Kv (rpm/V) 60"
+          }
+        },
+        {
+          "part": "cubemars-ake40-6-kv90",
+          "key": "outer_diameter",
+          "robotparts": {
+            "value": 51,
+            "unit": "mm",
+            "quote": "Motor Dimensions φ51×24.5mm"
+          }
+        },
+        {
+          "part": "cubemars-ake40-6-kv90",
+          "key": "axial_length",
+          "robotparts": {
+            "value": 24.5,
+            "unit": "mm",
+            "quote": "Motor Dimensions φ51×24.5mm"
+          }
+        }
+      ],
+      "new": [
+        {
+          "part": "aifitlab-8573474373768",
+          "model": "DM-J8009-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "可通过CAN总线反馈电机速度、位置、转矩",
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=104",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8573596401800",
+          "model": "DM-J6006-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "可通过CAN总线反馈电机速度、位置、转矩、电机温度等信息",
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=102",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8573733240968",
+          "model": "DM-J10010-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "可通过CAN总线反馈电机速度、位置、转矩、电机温度等信息",
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=107",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8678953713800",
+          "model": "AK10-9 V3.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "Black XT30 2+2 connector integrates power and CAN signals",
+          "source_url": "https://www.cubemars.com/product/ak10-9-v3-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8679837171848",
+          "model": "AKE60-8",
+          "key": "rotor_inertia",
+          "value": 647.39,
+          "unit": "g·cm²",
+          "raw": "647.39",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²) 647.39",
+          "source_url": "https://www.cubemars.com/product/ake60-8-kv80-quasi-direct-drive-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "rotor_inertia",
+          "value": 1002,
+          "unit": "g·cm²",
+          "raw": "1002",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²)\t1002",
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t2000\tUART connector",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t2000\tUART connector",
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "rotor_inertia",
+          "value": 607,
+          "unit": "g·cm²",
+          "raw": "607",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²) 607",
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN and UART",
+          "condition": null,
+          "cite": null,
+          "quote": "supports CAN and UART for seamless system integration",
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "rotor_inertia",
+          "value": 1232.6191,
+          "unit": "g·cm²",
+          "raw": "1232.6191",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²) 1232.6191",
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682594140296",
+          "model": "AK80-9 V3.0",
+          "key": "buses",
+          "value": [
+            "can-fd"
+          ],
+          "unit": "",
+          "raw": "CAN FD",
+          "condition": null,
+          "cite": null,
+          "quote": "Support CAN FD Communication",
+          "source_url": "https://www.cubemars.com/product/ak80-9-v3-0-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682639523976",
+          "model": "AK80-64",
+          "key": "rotor_inertia",
+          "value": 564.5,
+          "unit": "g·cm²",
+          "raw": "564.5",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²)\t564.5",
+          "source_url": "https://www.cubemars.com/product/ak80-64-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682649092232",
+          "model": "AK70-10",
+          "key": "rotor_inertia",
+          "value": 753.4788,
+          "unit": "g·cm²",
+          "raw": "753.4788",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²) 753.4788",
+          "source_url": "https://www.cubemars.com/product/ak70-10-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682672160904",
+          "model": "AK60-6 V3.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "Power CAN cable ×1",
+          "source_url": "https://www.cubemars.com/product/ak60-6-v3-0-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "rotor_inertia",
+          "value": 243.5,
+          "unit": "g·cm²",
+          "raw": "243.5",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²) 243.5",
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector A1257WR-S-4P Basic load ratings (dyn. C ) N 3150 UART connector",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector A1257WR-S-4P Basic load ratings (dyn. C ) N 3150 UART connector",
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "model": "J60-6",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "Comm Method\nCAN",
+          "source_url": "https://www.deeprobotics.cn/en/index/j60.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778268278920",
+          "model": "J60-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "Comm Method\nCAN",
+          "source_url": "https://www.deeprobotics.cn/en/index/j60.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8863771197576",
+          "model": "AKH70-16",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN communication. UART",
+          "condition": null,
+          "cite": null,
+          "quote": "XT30PW (2+2) connector integrates power and CAN communication. UART interface",
+          "source_url": "https://www.cubemars.com/product/akh70-16-v-1-0-kv41-hollow-shaft-planetary-actuator.html",
+          "multi_model_table": false
+        }
+      ]
+    },
+    "option2/codex": {
+      "conflicts": [],
+      "missing": [],
+      "new": [
+        {
+          "part": "aifitlab-8573474373768",
+          "model": "DM-J8009-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "可通过CAN总线反馈电机速度、位置、转矩、电机温度等信息。",
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=104",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8573596401800",
+          "model": "DM-J6006-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "可通过CAN总线反馈电机速度、位置、转矩、电机温度等信息。",
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=102",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8573733240968",
+          "model": "DM-J10010-2EC",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "可通过CAN总线反馈电机速度、位置、转矩、电机温度等信息。",
+          "source_url": "https://www.mdmbot.com/index.php?c=show&id=107",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8678953713800",
+          "model": "AK10-9 V3.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "Black XT30 2+2 connector integrates power and CAN signals",
+          "source_url": "https://www.cubemars.com/product/ak10-9-v3-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8679837171848",
+          "model": "AKE60-8",
+          "key": "rotor_inertia",
+          "value": 647.39,
+          "unit": "g·cm²",
+          "raw": "647.39",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²)\t647.39",
+          "source_url": "https://www.cubemars.com/product/ake60-8-kv80-quasi-direct-drive-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "rotor_inertia",
+          "value": 1002,
+          "unit": "g·cm²",
+          "raw": "1002",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²)\t1002",
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8681703899272",
+          "model": "AK10-9 V2.0",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t2000\tUART connector\tA1257WR-S-3P",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t2000\tUART connector\tA1257WR-S-3P",
+          "source_url": "https://www.cubemars.com/product/ak10-9-v2-0-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682178379912",
+          "model": "AK80-6",
+          "key": "buses",
+          "value": [
+            "uart",
+            "can"
+          ],
+          "unit": "",
+          "raw": "UART/CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "UART/CAN communication interface",
+          "source_url": "https://www.cubemars.com/product/ak80-6-kv100-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "rotor_inertia",
+          "value": 1232.6191,
+          "unit": "g·cm²",
+          "raw": "1232.6191",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²)\t1232.6191",
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682207641736",
+          "model": "AK80-8",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t2000\tUART connector\tA1257WR-S-3P",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t2000\tUART connector\tA1257WR-S-3P",
+          "source_url": "https://www.cubemars.com/product/ak80-8-kv60-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682594140296",
+          "model": "AK80-9 V3.0",
+          "key": "buses",
+          "value": [
+            "can-fd"
+          ],
+          "unit": "",
+          "raw": "CAN FD",
+          "condition": null,
+          "cite": null,
+          "quote": "Support CAN FD Communication",
+          "source_url": "https://www.cubemars.com/product/ak80-9-v3-0-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682639523976",
+          "model": "AK80-64",
+          "key": "rotor_inertia",
+          "value": 564.5,
+          "unit": "g·cm²",
+          "raw": "564.5",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²)\t564.5",
+          "source_url": "https://www.cubemars.com/product/ak80-64-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682639523976",
+          "model": "AK80-64",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t2000\tUART connector\tA1257WR-S-3P",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t2000\tUART connector\tA1257WR-S-3P",
+          "source_url": "https://www.cubemars.com/product/ak80-64-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682672160904",
+          "model": "AK60-6 V3.0",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "Wiring Pack:\nPower CAN cable ×1 + Serial cable ×1",
+          "source_url": "https://www.cubemars.com/product/ak60-6-v3-0-kv80-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "rotor_inertia",
+          "value": 243.5,
+          "unit": "g·cm²",
+          "raw": "243.5",
+          "condition": null,
+          "cite": null,
+          "quote": "Inertia (gcm²)\t243.5",
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682673602696",
+          "model": "AK60-6 V1.1",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t3150\tUART connector\tA1257WR-S-3P",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector\tA1257WR-S-4P\nBasic load ratings (dyn. C ) N\t3150\tUART connector\tA1257WR-S-3P",
+          "source_url": "https://www.cubemars.com/product/ak60-6-v1-1-kv140-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682681925768",
+          "model": "AK45-36",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector\tA1257WR-S-4P\nNoise dB\n(65CM away the motor)\t65\tUART connector\tA1257WR-S-3P",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector\tA1257WR-S-4P\nNoise dB\n(65CM away the motor)\t65\tUART connector\tA1257WR-S-3P",
+          "source_url": "https://www.cubemars.com/product/AK45-36.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682698440840",
+          "model": "AK45-10",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector\tA1257WR-S-4P\nNoise dB\n(65CM away the motor)\t60\tUART connector\tA1257WR-S-3P",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector\tA1257WR-S-4P\nNoise dB\n(65CM away the motor)\t60\tUART connector\tA1257WR-S-3P",
+          "source_url": "https://www.cubemars.com/product/AK45-10-robotic-actuatuor.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8682699948168",
+          "model": "AK40-10",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN connector\tA1257WR-S-4P\nNoise dB\n(65CM away the motor)\t50\tUART connector\tA1257WR-S-3P",
+          "condition": null,
+          "cite": null,
+          "quote": "CAN connector\tA1257WR-S-4P\nNoise dB\n(65CM away the motor)\t50\tUART connector\tA1257WR-S-3P",
+          "source_url": "https://www.cubemars.com/product/ak40-10-robotic-actuator.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778257367176",
+          "model": "J60-6",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "Comm Method\nCAN",
+          "source_url": "https://www.deeprobotics.cn/en/index/j60.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8778268278920",
+          "model": "J60-10",
+          "key": "buses",
+          "value": [
+            "can"
+          ],
+          "unit": "",
+          "raw": "CAN",
+          "condition": null,
+          "cite": null,
+          "quote": "Comm Method\nCAN",
+          "source_url": "https://www.deeprobotics.cn/en/index/j60.html",
+          "multi_model_table": false
+        },
+        {
+          "part": "aifitlab-8863771197576",
+          "model": "AKH70-16",
+          "key": "buses",
+          "value": [
+            "can",
+            "uart"
+          ],
+          "unit": "",
+          "raw": "CAN communication. UART interface",
+          "condition": null,
+          "cite": null,
+          "quote": "XT30PW (2+2) connector integrates power and CAN communication. UART interface (A1257WR-S-3P) is provided for PC-based configuration and parameter tuning.",
+          "source_url": "https://www.cubemars.com/product/akh70-16-v-1-0-kv41-hollow-shaft-planetary-actuator.html",
+          "multi_model_table": false
+        }
+      ]
+    }
+  },
+  "new_distinct": 51
+}

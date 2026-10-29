@@ -101,3 +101,25 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def rejudge(out: pathlib.Path) -> dict:
+    """Re-run the checker on a finished run's stored model reply (DIR/llm/output.json): no new LLM call. WHY: a
+    checker fix must be measurable on the very replies it was judged against, as robotparts' `ingest rejudge` does."""
+    run = json.loads((out / "run.json").read_text(encoding="utf-8"))
+    values = json.loads((out / "values.json").read_text(encoding="utf-8"))
+    output = json.loads((out / "llm" / "output.json").read_text(encoding="utf-8"))
+    fields = fields_module.load(pathlib.Path(run["fields"]) if pathlib.Path(run["fields"]).is_absolute()
+                                else pathlib.Path(__file__).resolve().parents[2] / run["fields"])
+    source = pathlib.Path(run["source"])
+    if run["option"] == 1:
+        bundle = option1.Bundle.load(pathlib.Path(run.get("bundle") or out / "bundle"))
+        verdicts, part = option1.judge(output, fields, bundle, run["part_model"])
+    else:
+        verdicts, part = option2.judge(output, fields, option2.Source(source, run["media_type"]), run["part_model"])
+    fresh = document(values["source"], values["extractor"]["pipeline"], values["extractor"]["model"], part, verdicts)
+    (out / "values.json").write_text(json.dumps(fresh, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    kept = sum(1 for verdict in verdicts if verdict.kept)
+    run.update({"proposed": len(verdicts), "kept": kept, "dropped": len(verdicts) - kept, "rejudged": True})
+    (out / "run.json").write_text(json.dumps(run, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return run
