@@ -1,0 +1,122 @@
+{
+  "schema": "extractor-eval/truth@0",
+  "case": "02-spec-list",
+  "derived_from": "/home/bam/markdownify/harness/cases/02-spec-list/source.md (by hand, 2026-10-29)",
+  "note": "Phase resistance (0.31 Ω) is not resistance_line_to_line (that key needs phase-to-phase); currents and the torque constant are not requested fields.",
+  "models": {
+    "KM60-6": [
+      {
+        "key": "nominal_voltage",
+        "value": 24,
+        "unit": "V",
+        "raw": "24 V",
+        "at": [
+          {
+            "text": "Rated voltage: 24 V"
+          }
+        ]
+      },
+      {
+        "key": "voltage_min",
+        "value": 18,
+        "unit": "V",
+        "raw": "18–52 V",
+        "at": [
+          {
+            "text": "Voltage range: 18"
+          }
+        ]
+      },
+      {
+        "key": "voltage_max",
+        "value": 52,
+        "unit": "V",
+        "raw": "18–52 V",
+        "at": [
+          {
+            "text": "Voltage range: 18"
+          }
+        ]
+      },
+      {
+        "key": "gear_ratio",
+        "value": 6,
+        "unit": ":1",
+        "raw": "6:1",
+        "at": [
+          {
+            "text": "Gear ratio: 6:1"
+          }
+        ]
+      },
+      {
+        "key": "rated_torque",
+        "value": 3,
+        "unit": "N·m",
+        "raw": "3 N·m",
+        "at": [
+          {
+            "text": "Rated torque: 3 N·m"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 9,
+        "unit": "N·m",
+        "raw": "9 N·m",
+        "at": [
+          {
+            "text": "Peak torque: 9 N·m"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 330,
+        "unit": "rpm",
+        "raw": "330 rpm",
+        "at": [
+          {
+            "text": "Rated speed: 330 rpm"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 315,
+        "unit": "g",
+        "raw": "315 g",
+        "at": [
+          {
+            "text": "Weight: 315 g"
+          }
+        ]
+      },
+      {
+        "key": "outer_diameter",
+        "value": 76,
+        "unit": "mm",
+        "raw": "76 mm",
+        "at": [
+          {
+            "text": "Outer diameter: 76 mm"
+          }
+        ]
+      },
+      {
+        "key": "buses",
+        "value": [
+          "can"
+        ],
+        "unit": "",
+        "raw": "CAN 2.0B",
+        "at": [
+          {
+            "text": "Communication: CAN 2.0B"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,208 @@
+{
+  "schema": "extractor-eval/truth@0",
+  "case": "06-units-in-headers",
+  "derived_from": "/home/bam/markdownify/harness/cases/06-units-in-headers/source.md (by hand, 2026-10-29)",
+  "note": "",
+  "models": {
+    "KM60-6": [
+      {
+        "key": "rated_torque",
+        "value": 3,
+        "unit": "N·m",
+        "raw": "3",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Rated torque (N·m)"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 9,
+        "unit": "N·m",
+        "raw": "9",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Peak torque (N·m)"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 330,
+        "unit": "rpm",
+        "raw": "330",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Rated speed (rpm)"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 315,
+        "unit": "g",
+        "raw": "315",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Weight (g)"
+          }
+        ]
+      }
+    ],
+    "KM70-10": [
+      {
+        "key": "rated_torque",
+        "value": 8.3,
+        "unit": "N·m",
+        "raw": "8.3",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Rated torque (N·m)"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 24.8,
+        "unit": "N·m",
+        "raw": "24.8",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Peak torque (N·m)"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 145,
+        "unit": "rpm",
+        "raw": "145",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Rated speed (rpm)"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 521,
+        "unit": "g",
+        "raw": "521",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Weight (g)"
+          }
+        ]
+      }
+    ],
+    "KM80-9": [
+      {
+        "key": "rated_torque",
+        "value": 9,
+        "unit": "N·m",
+        "raw": "9",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Rated torque (N·m)"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 18,
+        "unit": "N·m",
+        "raw": "18",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Peak torque (N·m)"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 230,
+        "unit": "rpm",
+        "raw": "230",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Rated speed (rpm)"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 485,
+        "unit": "g",
+        "raw": "485",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Weight (g)"
+          }
+        ]
+      }
+    ],
+    "KM80-64": [
+      {
+        "key": "rated_torque",
+        "value": 48,
+        "unit": "N·m",
+        "raw": "48",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Rated torque (N·m)"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 120,
+        "unit": "N·m",
+        "raw": "120",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Peak torque (N·m)"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 48,
+        "unit": "rpm",
+        "raw": "48",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Rated speed (rpm)"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 850,
+        "unit": "g",
+        "raw": "850",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Weight (g)"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -26,7 +26,9 @@ from .values import document, source_record
 
 
 def extract(source: pathlib.Path, fields_path: pathlib.Path, option: int, backend: str, part_model: str | None,
-            out: pathlib.Path, llm_model: str | None = None) -> dict:
+            out: pathlib.Path, llm_model: str | None = None, bundle: pathlib.Path | None = None) -> dict:
+    """One source, one option, one model call. `bundle` (Option 1): a Markdownify bundle already made from this
+    very source, reused instead of running mdify again (its sha256 must match)."""
     start = time.time()
     out.mkdir(parents=True, exist_ok=True)
     fields = fields_module.load(fields_path)
@@ -35,8 +37,15 @@ def extract(source: pathlib.Path, fields_path: pathlib.Path, option: int, backen
     run = {"source": str(source), "media_type": media_type, "option": option, "backend": backend,
            "part_model": part_model, "fields": str(fields_path), "llm_calls": 0, "mdify_seconds": None}
     if option == 1:
-        bundle_dir = out / "bundle"
-        run["mdify_seconds"], run["mdify"] = option1.run_mdify(source, bundle_dir)
+        if bundle is not None:
+            made = json.loads((bundle / "source.json").read_text(encoding="utf-8"))
+            if made.get("sha256") != record["sha256"]:
+                raise ValueError(f"{bundle} was made from {made.get('sha256')}, not this source ({record['sha256']})")
+            run["bundle"] = str(bundle)
+            bundle_dir = bundle
+        else:
+            bundle_dir = out / "bundle"
+            run["mdify_seconds"], run["mdify"] = option1.run_mdify(source, bundle_dir)
         bundle = option1.Bundle.load(bundle_dir)
         prompt = option1.build_prompt(bundle, fields, part_model)
         result = llm.extract(backend, option1.SYSTEM_PROMPT, prompt, option1.output_schema(fields), out / "llm",
@@ -82,9 +91,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--llm-model", help="override the CLI's model (default: claude-opus-5-5 / gpt-6.1-sol)")
     parser.add_argument("--part-model", help="the part number to pick in a table with one column (or row) per model")
     parser.add_argument("--out", type=pathlib.Path, required=True, help="output directory")
+    parser.add_argument("--bundle", type=pathlib.Path, help="Option 1: reuse a Markdownify bundle of this source")
     arguments = parser.parse_args(argv)
     run = extract(arguments.source, arguments.fields, arguments.option, arguments.model, arguments.part_model,
-                  arguments.out, arguments.llm_model)
+                  arguments.out, arguments.llm_model, arguments.bundle)
     print(json.dumps(run, ensure_ascii=False, indent=2))
     return 0 if run["llm_error"] is None else 1
 

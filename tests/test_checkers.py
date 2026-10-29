@@ -119,3 +119,25 @@ def test_option2_html_quote_checks():
     invented = option2.check_value({"key": "peak_torque", "value": "25", "unit": "N·m", "raw": "25 N·m",
                                     "quote": "Peak torque 25 N·m", "condition": ""}, LOOKUP, source, "KM70-10")
     assert not invented.kept and "does not occur" in invented.reasons[0]
+
+
+CUBEMARS_BUNDLE = pathlib.Path.home() / ".cache/datasheet-extractor/eval/bundles/8b0930e9c42f7d7384335c7e4a876ba3cf828477be7f498111786533f5e4a2dd/bundle"
+
+
+@pytest.mark.skipif(not CUBEMARS_BUNDLE.is_dir(), reason="the eval cache's CubeMars AKE40-6 bundle is not here")
+def test_option1_two_pair_rows_and_the_comparison_table():
+    bundle = option1.Bundle.load(CUBEMARS_BUNDLE)
+    nine = next(b["id"] for b in bundle.index["blocks"] if b["type"] == "table_cell" and bundle.text(b) == "9"
+                and "Backlash" in (option1.Grid.of(bundle, bundle.table_of(b["id"])).own_label(b) or ""))
+    as_rated = _check(bundle, {"key": "rated_torque", "value": "9", "unit": "N·m", "raw": "9", "id": nine}, "AKE40-6 KV90")
+    assert not as_rated.kept
+    backlash = _check(bundle, {"key": "backlash", "value": "9", "unit": "arcmin", "raw": "9", "id": nine}, "AKE40-6 KV90")
+    assert backlash.kept, backlash.reasons
+    size = next(b["id"] for b in bundle.index["blocks"] if b["type"] == "table_cell" and "51×24.5" in bundle.text(b))
+    for key, printed in (("outer_diameter", "51"), ("axial_length", "24.5")):
+        verdict = _check(bundle, {"key": key, "value": printed, "unit": "mm", "raw": "Ø51×24.5", "id": size}, "AKE40-6 KV90")
+        assert verdict.kept, verdict.reasons
+    other_row = next(b["id"] for b in bundle.index["blocks"] if b["type"] == "table_cell" and "98*61.7" in bundle.text(b).replace("\\", ""))
+    other = _check(bundle, {"key": "outer_diameter", "value": "98", "unit": "mm", "raw": "Ф98*61.7", "id": other_row},
+                   "AKE40-6 KV90")
+    assert not other.kept and "does not name" in other.reasons[0]

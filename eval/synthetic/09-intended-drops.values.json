@@ -1,0 +1,78 @@
+{
+  "schema": "extractor-eval/truth@0",
+  "case": "09-intended-drops",
+  "derived_from": "/home/bam/markdownify/harness/cases/09-intended-drops/source.md (by hand, 2026-10-29)",
+  "note": "",
+  "models": {
+    "KM80-64": [
+      {
+        "key": "gear_ratio",
+        "value": 64,
+        "unit": ":1",
+        "raw": "64:1",
+        "at": [
+          {
+            "text": "64:1 gearbox"
+          }
+        ]
+      },
+      {
+        "key": "rated_torque",
+        "value": 48,
+        "unit": "N·m",
+        "raw": "48 N·m",
+        "at": [
+          {
+            "row": "Rated torque",
+            "column": "Value"
+          },
+          {
+            "text": "48 N·m rated"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 120,
+        "unit": "N·m",
+        "raw": "120 N·m",
+        "at": [
+          {
+            "row": "Peak torque",
+            "column": "Value"
+          },
+          {
+            "text": "120 N·m peak"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 48,
+        "unit": "rpm",
+        "raw": "48 rpm",
+        "at": [
+          {
+            "row": "Rated speed",
+            "column": "Value"
+          },
+          {
+            "text": "rated speed of 48 rpm"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 850,
+        "unit": "g",
+        "raw": "850 g",
+        "at": [
+          {
+            "row": "Weight",
+            "column": "Value"
+          }
+        ]
+      }
+    ]
+  }
+}

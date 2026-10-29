@@ -1,0 +1,256 @@
+{
+  "schema": "extractor-eval/truth@0",
+  "case": "05-merged-header",
+  "derived_from": "/home/bam/markdownify/harness/cases/05-merged-header/source.md (by hand, 2026-10-29)",
+  "note": "",
+  "models": {
+    "KM60-6": [
+      {
+        "key": "rated_torque",
+        "value": 3,
+        "unit": "N·m",
+        "raw": "3 N·m",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Torque Rated"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 9,
+        "unit": "N·m",
+        "raw": "9 N·m",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Torque Peak"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 330,
+        "unit": "rpm",
+        "raw": "330 rpm",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Speed Rated"
+          }
+        ]
+      },
+      {
+        "key": "max_output_speed",
+        "value": 420,
+        "unit": "rpm",
+        "raw": "420 rpm",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Speed No-load"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 315,
+        "unit": "g",
+        "raw": "315 g",
+        "at": [
+          {
+            "row": "KM60-6",
+            "column": "Weight"
+          }
+        ]
+      }
+    ],
+    "KM70-10": [
+      {
+        "key": "rated_torque",
+        "value": 8.3,
+        "unit": "N·m",
+        "raw": "8.3 N·m",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Torque Rated"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 24.8,
+        "unit": "N·m",
+        "raw": "24.8 N·m",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Torque Peak"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 145,
+        "unit": "rpm",
+        "raw": "145 rpm",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Speed Rated"
+          }
+        ]
+      },
+      {
+        "key": "max_output_speed",
+        "value": 310,
+        "unit": "rpm",
+        "raw": "310 rpm",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Speed No-load"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 521,
+        "unit": "g",
+        "raw": "521 g",
+        "at": [
+          {
+            "row": "KM70-10",
+            "column": "Weight"
+          }
+        ]
+      }
+    ],
+    "KM80-9": [
+      {
+        "key": "rated_torque",
+        "value": 9,
+        "unit": "N·m",
+        "raw": "9 N·m",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Torque Rated"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 18,
+        "unit": "N·m",
+        "raw": "18 N·m",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Torque Peak"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 230,
+        "unit": "rpm",
+        "raw": "230 rpm",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Speed Rated"
+          }
+        ]
+      },
+      {
+        "key": "max_output_speed",
+        "value": 390,
+        "unit": "rpm",
+        "raw": "390 rpm",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Speed No-load"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 485,
+        "unit": "g",
+        "raw": "485 g",
+        "at": [
+          {
+            "row": "KM80-9",
+            "column": "Weight"
+          }
+        ]
+      }
+    ],
+    "KM80-64": [
+      {
+        "key": "rated_torque",
+        "value": 48,
+        "unit": "N·m",
+        "raw": "48 N·m",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Torque Rated"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 120,
+        "unit": "N·m",
+        "raw": "120 N·m",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Torque Peak"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 48,
+        "unit": "rpm",
+        "raw": "48 rpm",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Speed Rated"
+          }
+        ]
+      },
+      {
+        "key": "max_output_speed",
+        "value": 61,
+        "unit": "rpm",
+        "raw": "61 rpm",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Speed No-load"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 850,
+        "unit": "g",
+        "raw": "850 g",
+        "at": [
+          {
+            "row": "KM80-64",
+            "column": "Weight"
+          }
+        ]
+      }
+    ]
+  }
+}

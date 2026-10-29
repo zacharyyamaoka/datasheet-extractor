@@ -1,0 +1,70 @@
+{
+  "schema": "extractor-eval/truth@0",
+  "case": "10-torque-speed-plot",
+  "derived_from": "/home/bam/markdownify/harness/cases/10-torque-speed-plot/source.md (by hand, 2026-10-29)",
+  "note": "The table's rows name the operating point and its columns the quantity, so the label is split over both headers ('Stall' × 'Torque'). Plot values are not requested.",
+  "models": {
+    "KM80-9": [
+      {
+        "key": "peak_torque",
+        "value": 18,
+        "unit": "N·m",
+        "raw": "18 N·m",
+        "at": [
+          {
+            "row": "Stall",
+            "column": "Torque"
+          }
+        ]
+      },
+      {
+        "key": "rated_torque",
+        "value": 9,
+        "unit": "N·m",
+        "raw": "9 N·m",
+        "at": [
+          {
+            "row": "Rated",
+            "column": "Torque"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 230,
+        "unit": "rpm",
+        "raw": "230 rpm",
+        "at": [
+          {
+            "row": "Rated",
+            "column": "Speed"
+          }
+        ]
+      },
+      {
+        "key": "max_output_speed",
+        "value": 390,
+        "unit": "rpm",
+        "raw": "390 rpm",
+        "at": [
+          {
+            "row": "No-load",
+            "column": "Speed"
+          }
+        ]
+      },
+      {
+        "key": "nominal_voltage",
+        "value": 48,
+        "unit": "V",
+        "raw": "48 V",
+        "at": [
+          {
+            "text": "measured at 48 V"
+          }
+        ],
+        "optional": true
+      }
+    ]
+  }
+}

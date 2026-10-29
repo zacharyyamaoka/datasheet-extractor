@@ -1,0 +1,79 @@
+{
+  "schema": "extractor-eval/truth@0",
+  "case": "01-prose-spec",
+  "derived_from": "/home/bam/markdownify/harness/cases/01-prose-spec/source.md (by hand, 2026-10-29)",
+  "note": "nominal_voltage is optional: 48 V is the condition of the torques, not a stated rated voltage. Phase-free prose: no resistance, current or temperature fields are requested.",
+  "models": {
+    "KM80-9": [
+      {
+        "key": "pole_pairs",
+        "value": 21,
+        "unit": "",
+        "raw": "21",
+        "at": [
+          {
+            "text": "21 pole pairs"
+          }
+        ]
+      },
+      {
+        "key": "gear_ratio",
+        "value": 9,
+        "unit": ":1",
+        "raw": "9:1",
+        "at": [
+          {
+            "text": "9:1 planetary gearbox"
+          }
+        ]
+      },
+      {
+        "key": "rated_torque",
+        "value": 9,
+        "unit": "N·m",
+        "raw": "9 N·m",
+        "at": [
+          {
+            "text": "rated torque of 9 N·m"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 18,
+        "unit": "N·m",
+        "raw": "18 N·m",
+        "at": [
+          {
+            "text": "peak torque of 18 N·m"
+          }
+        ]
+      },
+      {
+        "key": "buses",
+        "value": [
+          "can"
+        ],
+        "unit": "",
+        "raw": "CAN 2.0B",
+        "at": [
+          {
+            "text": "talks CAN 2.0B"
+          }
+        ]
+      },
+      {
+        "key": "nominal_voltage",
+        "value": 48,
+        "unit": "V",
+        "raw": "48 V",
+        "at": [
+          {
+            "text": "at 48 V"
+          }
+        ],
+        "optional": true
+      }
+    ]
+  }
+}

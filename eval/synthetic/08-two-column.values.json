@@ -1,0 +1,89 @@
+{
+  "schema": "extractor-eval/truth@0",
+  "case": "08-two-column",
+  "derived_from": "/home/bam/markdownify/harness/cases/08-two-column/source.md (by hand, 2026-10-29)",
+  "note": "gear_ratio: 'A 10:1 planetary stage' states the reduction without a ratio/gear label; it is true, and a checker that needs a label will miss it.",
+  "models": {
+    "KM70-10": [
+      {
+        "key": "gear_ratio",
+        "value": 10,
+        "unit": ":1",
+        "raw": "10:1",
+        "at": [
+          {
+            "text": "10:1 planetary stage"
+          }
+        ]
+      },
+      {
+        "key": "rated_torque",
+        "value": 8.3,
+        "unit": "N·m",
+        "raw": "8.3 N·m",
+        "at": [
+          {
+            "row": "Rated torque",
+            "column": "Value"
+          },
+          {
+            "text": "rated torque of 8.3 N·m"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 24.8,
+        "unit": "N·m",
+        "raw": "24.8 N·m",
+        "at": [
+          {
+            "row": "Peak torque",
+            "column": "Value"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 145,
+        "unit": "rpm",
+        "raw": "145 rpm",
+        "at": [
+          {
+            "row": "Rated speed",
+            "column": "Value"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 521,
+        "unit": "g",
+        "raw": "521 g",
+        "at": [
+          {
+            "row": "Weight",
+            "column": "Value"
+          },
+          {
+            "text": "in a 521 g housing"
+          }
+        ]
+      },
+      {
+        "key": "buses",
+        "value": [
+          "can",
+          "uart"
+        ],
+        "unit": "",
+        "raw": "CAN 2.0B and UART",
+        "at": [
+          {
+            "text": "CAN 2.0B and UART"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -152,22 +152,28 @@ class Grid:
         text = self.texts[cell["id"]]
         return bool(text) and not _VALUE_CELL.match(text)
 
-    def row_headers(self, cell: dict) -> list[str]:
-        """The row header cells of `cell`, read from the grid: its row's header columns and the nearest
-        label-like cell to its left (a two-pair row 'Weight g | 140 | Insulation Class | F')."""
+    def own_label(self, cell: dict) -> str | None:
+        """The nearest label-like cell to the left of `cell` in its row: its row label ('Weight g' in a two-pair
+        row 'Weight g | 140 | Insulation Class | F', never the row's first label 'Size mm')."""
         row, col = cell["row"], cell["col"]
-        seen, out = set(), []
-        for c in range(min(self.header_cols, col)):
-            other = self.at.get((row, c))
-            if other and other["id"] not in seen and self.texts[other["id"]]:
-                seen.add(other["id"])
-                out.append(self.texts[other["id"]])
         for c in range(col - 1, -1, -1):
             other = self.at.get((row, c))
             if other and other is not cell and self._label_like(other):
-                if other["id"] not in seen:
-                    out.append(self.texts[other["id"]])
-                break
+                return self.texts[other["id"]]
+        return None
+
+    def row_headers(self, cell: dict) -> list[str]:
+        """Every row header of `cell`, read from the grid: its row's header columns and its own label. The model
+        check reads all of them ('AK Series Robotic Actuator / AK10-9 V3.0 KV60')."""
+        row, col = cell["row"], cell["col"]
+        out = []
+        for c in range(min(self.header_cols, col)):
+            other = self.at.get((row, c))
+            if other and self.texts[other["id"]] and self.texts[other["id"]] not in out:
+                out.append(self.texts[other["id"]])
+        own = self.own_label(cell)
+        if own is not None and own not in out:
+            out.append(own)
         return out
 
     def column_headers(self, cell: dict) -> list[str]:
@@ -295,22 +301,32 @@ def check_value(row: dict, fields: dict[str, Field], bundle: Bundle, part_model:
             return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
         grid = grids.setdefault(table["id"], Grid.of(bundle, table))
         row_texts, col_texts = grid.row_headers(block), grid.column_headers(block)
+        own_label = grid.own_label(block)
         cite.update({"row": " / ".join(row_texts) or None, "column": " / ".join(col_texts) or None})
-        on_row, on_col = header_label(field, row_texts), header_label(field, col_texts)
-        in_cell = bind.read(key, value, unit, condition, plain(raw), own, None, tuple(fields.values()), None,
-                            part_model)
+        # WHY only the nearest label on the row axis: in 'Rated Torque N·m | 1.8 | Backlash arcmin | 9' the 9's
+        # label is 'Backlash arcmin'; the row's first cell names the 1.8.
+        on_row = header_label(field, [own_label]) if own_label else None
+        on_col = header_label(field, col_texts)
+        marked = any(re.search(mark, own) for mark in field.marks)
         if on_row is not None:
-            label_text, model_axis, model_texts = on_row, "column", col_texts
+            label_text, model_axes = on_row, [("column", col_texts)]
         elif on_col is not None:
-            label_text, model_axis, model_texts = on_col, "row", row_texts
-        elif not in_cell.problems and label_found(field, own):
-            label_text, model_axis, model_texts = own, None, []
+            label_text, model_axes = on_col, [("row", row_texts)]
+        elif marked or (own_label and col_texts and (header_label(field, [" ".join([own_label] + col_texts)])
+                                                       or header_label(field, [" ".join(col_texts + [own_label])]))):
+            # WHY: a diameter sign labels its own cell ('Ø51×24.5' in a 'Size mm' row), and a label split over both
+            # headers ('Stall' row, 'Torque' column) is the cell's head n-grams, as Fonduer reads them. Either way
+            # neither axis is spent on the label alone, so any axis that lists models must name this one.
+            label_text = " ".join([own] + row_texts + col_texts)
+            model_axes = [("row", row_texts), ("column", col_texts)]
         else:
-            reasons.append(f"neither the row header {' / '.join(row_texts)!r} nor the column header "
+            reasons.append(f"neither the row label {own_label!r} nor the column header "
                            f"{' / '.join(col_texts)!r} carries one of {key!r}'s labels")
             return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
         reasons += _cell_value_problems(field, value, unit, condition, raw, label_text)
-        if model_axis is not None and len(grid.designations(model_axis)) >= 2:
+        for model_axis, model_texts in model_axes:
+            if len(grid.designations(model_axis)) < 2:
+                continue
             cite["multi_model"] = True
             if not part_model:
                 reasons.append(f"{table['id']} has one {model_axis} per model and no --part-model was given")

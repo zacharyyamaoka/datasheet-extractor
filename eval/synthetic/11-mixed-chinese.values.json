@@ -1,0 +1,95 @@
+{
+  "schema": "extractor-eval/truth@0",
+  "case": "11-mixed-chinese",
+  "derived_from": "/home/bam/markdownify/harness/cases/11-mixed-chinese/source.md (by hand, 2026-10-29)",
+  "note": "",
+  "models": {
+    "KM80-9": [
+      {
+        "key": "nominal_voltage",
+        "value": 48,
+        "unit": "V",
+        "raw": "48 V",
+        "at": [
+          {
+            "row": "额定电压 Rated voltage",
+            "column": "数值 Value"
+          }
+        ]
+      },
+      {
+        "key": "rated_torque",
+        "value": 9,
+        "unit": "N·m",
+        "raw": "9 N·m",
+        "at": [
+          {
+            "row": "额定扭矩 Rated torque",
+            "column": "数值 Value"
+          }
+        ]
+      },
+      {
+        "key": "peak_torque",
+        "value": 18,
+        "unit": "N·m",
+        "raw": "18 N·m",
+        "at": [
+          {
+            "row": "峰值扭矩 Peak torque",
+            "column": "数值 Value"
+          }
+        ]
+      },
+      {
+        "key": "rated_speed",
+        "value": 230,
+        "unit": "rpm",
+        "raw": "230 rpm",
+        "at": [
+          {
+            "row": "额定转速 Rated speed",
+            "column": "数值 Value"
+          }
+        ]
+      },
+      {
+        "key": "gear_ratio",
+        "value": 9,
+        "unit": ":1",
+        "raw": "9:1",
+        "at": [
+          {
+            "row": "减速比 Gear ratio",
+            "column": "数值 Value"
+          }
+        ]
+      },
+      {
+        "key": "mass",
+        "value": 485,
+        "unit": "g",
+        "raw": "485 g",
+        "at": [
+          {
+            "row": "重量 Weight",
+            "column": "数值 Value"
+          }
+        ]
+      },
+      {
+        "key": "buses",
+        "value": [
+          "can"
+        ],
+        "unit": "",
+        "raw": "CAN 2.0B",
+        "at": [
+          {
+            "text": "CAN 2.0B"
+          }
+        ]
+      }
+    ]
+  }
+}
