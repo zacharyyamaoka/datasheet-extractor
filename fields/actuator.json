@@ -1,0 +1,393 @@
+[
+  {
+    "key": "peak_torque",
+    "labels": [
+      "peak torque",
+      "max torque",
+      "maximum torque",
+      "max. torque",
+      "stall torque",
+      "locked rotor torque",
+      "instantaneous torque",
+      "峰值扭矩",
+      "峰值转矩",
+      "最大扭矩",
+      "最大转矩",
+      "堵转扭矩",
+      "堵转转矩"
+    ],
+    "units": [
+      "N·m",
+      "mN·m"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the peak (maximum, stall) torque at the OUTPUT of this part, after its own gearbox",
+    "definition": "Peak (stall) torque at the part's OUTPUT, after the part's own reduction if it has one. On drivetrain geared or direct_drive it is the joint's max effort as is: never multiply it by gear_ratio. On drivetrain motor it is the bare motor's shaft torque, which a separate gearbox multiplies."
+  },
+  {
+    "key": "rated_torque",
+    "labels": [
+      "rated torque",
+      "nominal torque",
+      "continuous torque",
+      "额定扭矩",
+      "额定转矩"
+    ],
+    "units": [
+      "N·m",
+      "mN·m"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the rated (continuous, nominal) torque at the OUTPUT, after its own gearbox",
+    "definition": "Continuous (rated) torque at the part's OUTPUT, after the part's own reduction if it has one. A consumer never multiplies it by gear_ratio."
+  },
+  {
+    "key": "max_output_speed",
+    "labels": [
+      "no load speed",
+      "max speed",
+      "maximum speed",
+      "max. speed",
+      "peak speed",
+      "no load rpm",
+      "空载转速",
+      "最大转速"
+    ],
+    "units": [
+      "rpm",
+      "rad/s",
+      "deg/s"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the no-load (maximum) speed at the OUTPUT; skip a value the source gives at the motor before the gearbox",
+    "definition": "No-load (maximum) speed at the part's OUTPUT. On drivetrain geared or direct_drive it is the joint's max velocity (robot.json max_velocity_rad_s after conversion to rad/s)."
+  },
+  {
+    "key": "rated_speed",
+    "labels": [
+      "rated speed",
+      "rated rpm",
+      "nominal speed",
+      "额定转速"
+    ],
+    "units": [
+      "rpm",
+      "rad/s",
+      "deg/s"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the speed at rated torque, at the OUTPUT",
+    "definition": "Speed at rated torque, at the part's OUTPUT."
+  },
+  {
+    "key": "gear_ratio",
+    "labels": [
+      "ratio",
+      "reduction",
+      "gear",
+      "减速比",
+      "速比",
+      "传动比"
+    ],
+    "units": [
+      ":1",
+      ""
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the reduction ratio as rotor turns per output turn (9 for 9:1 or 1:9); written as the source prints it",
+    "definition": "Rotor (input) turns per output turn, as a magnitude > 0: 10 for a 10:1 reducer such as the GIM4305-10, 1 for direct drive. A reversing reducer is still positive (a direction, if one is ever needed, is a separate key). cad2robot/1 robot.json stores rotor_to_output_ratio = 1 / gear_ratio. Missing means unknown, never 1, except on drivetrain direct_drive or motor, where it is 1 by definition."
+  },
+  {
+    "key": "mass",
+    "labels": [
+      "weight",
+      "mass",
+      "重量",
+      "质量"
+    ],
+    "units": [
+      "kg",
+      "g"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the mass of the part as sold; note a stated condition such as 'with driver'",
+    "definition": "Mass of the part as sold, without optional accessories."
+  },
+  {
+    "key": "outer_diameter",
+    "labels": [
+      "diameter",
+      "od",
+      "od.",
+      "o.d",
+      "o.d.",
+      "外径",
+      "直径"
+    ],
+    "units": [
+      "m",
+      "mm"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the largest outer diameter of a round housing, only where the source marks it as a diameter (Φ, ⌀, 'diameter')",
+    "definition": "Largest diameter of a round part about its Z axis (an actuator's or gearbox's housing), as the source gives it. With axial_length it sizes the In-CAD stand-in.",
+    "marks": [
+      "(?:Φ|φ|Ф|ф|⌀|Ø|ø)"
+    ]
+  },
+  {
+    "key": "axial_length",
+    "labels": [
+      "length",
+      "thickness",
+      "height",
+      "长度",
+      "高度",
+      "厚度"
+    ],
+    "units": [
+      "m",
+      "mm"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the overall length along the output axis; for 'Φ98*38.5 mm' it is the second number",
+    "definition": "Overall length of a round part along its Z axis, as the source gives it. With outer_diameter it sizes the In-CAD stand-in.",
+    "marks": [
+      "(?:Φ|φ|Ф|ф|⌀|Ø|ø)\\s*\\d[\\d.]*\\s*[*×xX]\\s*\\d"
+    ]
+  },
+  {
+    "key": "nominal_voltage",
+    "labels": [
+      "rated voltage",
+      "nominal voltage",
+      "standard voltage",
+      "standard operating voltage",
+      "standard. voltage",
+      "standard. operating voltage",
+      "std voltage",
+      "std operating voltage",
+      "std. voltage",
+      "std. operating voltage",
+      "额定电压",
+      "标称电压"
+    ],
+    "units": [
+      "V"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the rated (nominal) supply voltage",
+    "definition": "Nominal supply voltage."
+  },
+  {
+    "key": "voltage_min",
+    "labels": [
+      "voltage range",
+      "input voltage",
+      "operating voltage",
+      "op voltage",
+      "op. voltage",
+      "supply voltage",
+      "working voltage",
+      "电压范围",
+      "工作电压",
+      "输入电压",
+      "供电电压"
+    ],
+    "units": [
+      "V"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the lowest supply voltage of a stated range (12 in '12-48 V')",
+    "definition": "Lowest supply voltage the part is rated for. A port's own voltage_min states that port; this part-level value is the fallback for a port that states none."
+  },
+  {
+    "key": "voltage_max",
+    "labels": [
+      "voltage range",
+      "input voltage",
+      "operating voltage",
+      "op voltage",
+      "op. voltage",
+      "supply voltage",
+      "working voltage",
+      "max voltage",
+      "maximum voltage",
+      "max. voltage",
+      "电压范围",
+      "工作电压",
+      "输入电压",
+      "供电电压"
+    ],
+    "units": [
+      "V"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the highest supply voltage of a stated range (48 in '12-48 V')",
+    "definition": "Highest supply voltage the part is rated for. A port's own voltage_max states that port; this part-level value is the fallback for a port that states none."
+  },
+  {
+    "key": "rated_power",
+    "labels": [
+      "rated power",
+      "rated output power",
+      "nominal power",
+      "额定功率"
+    ],
+    "units": [
+      "W"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the rated (continuous) output power",
+    "definition": "Continuous output power: electrical for a PSU, mechanical (rated torque x rated speed) for an actuator."
+  },
+  {
+    "key": "backlash",
+    "labels": [
+      "backlash",
+      "back lash",
+      "回程间隙",
+      "背隙",
+      "回差"
+    ],
+    "units": [
+      "arcmin",
+      "deg",
+      "rad",
+      "mrad"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the backlash at the output; note it in `note` when the source states an upper bound such as ≤",
+    "definition": "Backlash at the output."
+  },
+  {
+    "key": "rotor_inertia",
+    "labels": [
+      "rotor inertia",
+      "inertia",
+      "转动惯量",
+      "转子惯量"
+    ],
+    "units": [
+      "kg·m²",
+      "kg·cm²",
+      "kg·mm²",
+      "g·cm²",
+      "g·mm²"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the rotor's moment of inertia on the INPUT (motor) side, as the datasheet quotes it; skip an output-side inertia",
+    "definition": "Moment of inertia of the motor's rotor about its own axis, on the INPUT side, as datasheets quote it. A consumer reflects it to the output: armature = gear_ratio^2 x (rotor_inertia + gearbox_input_inertia). Read as output-side it is off by gear_ratio^2 (100x on a 10:1)."
+  },
+  {
+    "key": "kv",
+    "labels": [
+      "kv",
+      "speed constant",
+      "velocity constant",
+      "转速常数"
+    ],
+    "units": [
+      "rpm/V"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the motor velocity constant in rpm per volt at the rotor (before the gearbox)",
+    "definition": "Velocity constant: no-load rotor speed per volt, the volt being the line-to-line peak back-EMF (what a hobby datasheet's rpm per volt of DC supply means). Kv in rpm/V = 60 / (2 pi ke), ke the line-to-line peak back-EMF constant in V·s/rad. A source that defines it another way (per phase, RMS, or a firmware's own scaling) is converted with its definition cited, or not recorded."
+  },
+  {
+    "key": "pole_pairs",
+    "labels": [
+      "pole pair",
+      "pole pairs",
+      "pole-pair",
+      "pole-pairs",
+      "pair of poles",
+      "pairs of poles",
+      "极对数"
+    ],
+    "units": [
+      ""
+    ],
+    "kind": "number",
+    "per_model": true,
+    "integer": true,
+    "guidance": "the number of magnetic pole PAIRS, only where the source says pole pairs (never a pole count)",
+    "definition": "Number of magnetic pole pairs of the motor."
+  },
+  {
+    "key": "resistance_line_to_line",
+    "labels": [
+      "phase to phase resistance",
+      "line to line resistance",
+      "inter phase resistance",
+      "线电阻",
+      "相间电阻"
+    ],
+    "units": [
+      "Ω",
+      "mΩ"
+    ],
+    "kind": "number",
+    "per_model": true,
+    "guidance": "the winding resistance between two motor leads, only where the source says phase-to-phase or line-to-line",
+    "definition": "Winding resistance measured between two motor leads (line to line); for a wye winding, twice the phase resistance."
+  },
+  {
+    "key": "buses",
+    "labels": [
+      "can",
+      "rs485",
+      "rs-485",
+      "rs232",
+      "rs-232",
+      "uart",
+      "ethercat",
+      "ether cat",
+      "communication",
+      "通讯",
+      "通信"
+    ],
+    "units": [
+      ""
+    ],
+    "kind": "text",
+    "per_model": false,
+    "guidance": "the communication buses, as registry names (can, can-fd, rs485, rs232, uart, ethercat, …)",
+    "definition": "The communication buses the part speaks, as a list. A folder spec uses registry buses and protocols names; an atlas's own words map through registry.bus_terms and registry.protocol_terms into the record's buses and protocols. Ports, where a part has electrical.data ports, state their own bus and win.",
+    "allowed": [
+      "can",
+      "can-fd",
+      "rs485",
+      "rs232",
+      "uart",
+      "spi",
+      "i2c",
+      "usb",
+      "ethernet",
+      "gige",
+      "ethercat",
+      "pwm",
+      "analog",
+      "mipi-csi",
+      "pcie",
+      "quadrature",
+      "canopen",
+      "modbus"
+    ]
+  }
+]

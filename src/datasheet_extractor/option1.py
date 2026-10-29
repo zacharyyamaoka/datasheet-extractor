@@ -1,0 +1,426 @@
+"""Option 1: the raw source through Markdownify, then the model cites block and cell ids, and code checks them.
+
+The model sees `document.md` with every block and table cell tagged by its index.json id, and returns
+`{key, value, unit, raw, condition, id}`. Code, not the model, then:
+
+1. finds the id in index.json (a closed set: the model cannot point at nothing) and refuses a whole table, a figure
+   or a block Markdownify did not convert;
+2. checks `raw` is inside the cited block's or cell's own text, and `value` is printed in `raw` as a number of its
+   own (no conversion), at its key's place in the cell ('Ø51×24.5' is diameter × length, '18–52 V' a range);
+3. for a table cell, reads the row header and the column header from the index's row/col grid — never from the
+   model — and requires one of them to carry one of the field's labels, the unit to be printed at the number or in
+   that header, and, in a table with one column (or row) per model, the other header to name `--part-model`;
+4. for a prose block, holds the block's own text to robotparts' binding rule (bind.py): the label sits right before
+   the number (or right after it, in prose) with no other number or quantity between them;
+5. copies the grounding from index.json.
+
+WHY cite ids (research note 2026-10-29 `2-grounding.md`): a quote grounds a string, not a table relation; in a
+comparison table the model's header (which model) sits rows above the number, and small models pick the right
+column only 30% of the time against 72% for the row. So the model names the cell and code names the column.
+
+WHY the tag is `⟦id⟧` at the start of each block's and cell's range: the id is the very string index.json and
+values.json carry, so no alias table can drift; the brackets never occur in a datasheet, so the checker strips them
+unambiguously and the model cannot mistake them for source text; and one tag per cell keeps a GFM row on one line,
+so the model still reads the table as a table.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import json
+import pathlib
+import re
+import subprocess
+import time
+
+from . import bind
+from .fields import Field, by_key, label_found, unit_found
+from .values import Verdict, cross_check, normal, parse_value, squash, value_problems
+
+MARKDOWNIFY = pathlib.Path("/home/bam/markdownify")
+TAG_OPEN, TAG_CLOSE = "⟦", "⟧"
+UNCITABLE = {"table", "figure", "plot", "diagram"}
+
+# A cell that states a value: it starts with a number (after a sign, a comparison or a diameter mark).
+_VALUE_CELL = re.compile(r"^[\s≤≥<>~≈±+\-−]*[" + bind.DIAMETER_MARKS + r"]?\s*\d")
+# A model designation: starts with a letter, carries a digit ('KM80-9', 'AK10-9', 'V3.0', 'KV60', 'DM-J8009-2EC').
+_DESIGNATION = re.compile(r"(?<![\w.\-/])[A-Za-z][A-Za-z\-]*\d[\w.\-]*")
+
+
+def run_mdify(source: pathlib.Path, bundle_dir: pathlib.Path) -> tuple[float, str]:
+    """`uv run --directory /home/bam/markdownify mdify <source> --out <bundle_dir>`: (seconds, stderr tail)."""
+    start = time.time()
+    run = subprocess.run(["uv", "run", "--directory", str(MARKDOWNIFY), "mdify", str(pathlib.Path(source).resolve()),
+                          "--out", str(bundle_dir.resolve())], capture_output=True, text=True, check=False)
+    seconds = time.time() - start
+    (bundle_dir.parent / "mdify-stderr.txt").write_text(run.stderr, encoding="utf-8")
+    if run.returncode != 0 or not (bundle_dir / "index.json").is_file():
+        raise RuntimeError(f"mdify failed ({run.returncode}): {run.stderr[-600:]}")
+    return round(seconds, 2), run.stdout.strip()
+
+
+def plain(text: str) -> str:
+    """A block's markdown as the words it prints: no HTML tags, no link targets, no escapes, no emphasis marks."""
+    text = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\\([^\w\s])", r"\1", text)
+    text = text.replace("**", "").replace("`", "")
+    text = re.sub(re.escape(TAG_OPEN) + r"[^" + re.escape(TAG_CLOSE) + r"]*" + re.escape(TAG_CLOSE), " ", text)
+    return normal(text)
+
+
+@dataclasses.dataclass
+class Bundle:
+    directory: pathlib.Path
+    markdown: str
+    index: dict
+    blocks: dict
+
+    @classmethod
+    def load(cls, directory: pathlib.Path) -> "Bundle":
+        markdown = (directory / "document.md").read_text(encoding="utf-8")
+        index = json.loads((directory / "index.json").read_text(encoding="utf-8"))
+        return cls(directory, markdown, index, {block["id"]: block for block in index["blocks"]})
+
+    def text(self, block: dict) -> str:
+        span = block.get("range")
+        return self.markdown[span["start"]:span["end"]] if span else ""
+
+    def table_of(self, cell_id: str) -> dict | None:
+        return next((block for block in self.index["blocks"]
+                     if block["type"] == "table" and cell_id in (block.get("children") or [])), None)
+
+    def tagged(self) -> str:
+        """document.md with `⟦id⟧ ` at the start of every block and cell range (outer blocks first)."""
+        marks = sorted(((block["range"]["start"], -(block["range"]["end"] - block["range"]["start"]), block["id"])
+                        for block in self.index["blocks"] if block.get("range")), key=lambda m: (m[0], m[1]))
+        out, cursor = [], 0
+        for start, _, block_id in marks:
+            out.append(self.markdown[cursor:start])
+            out.append(f"{TAG_OPEN}{block_id}{TAG_CLOSE} ")
+            cursor = start
+        out.append(self.markdown[cursor:])
+        return "".join(out)
+
+
+@dataclasses.dataclass
+class Grid:
+    """A table as index.json lays it out: (row, col) → cell, spans filled in."""
+    cells: list[dict]
+    texts: dict                   # cell id → plain text
+    at: dict                      # (row, col) → cell
+    header_rows: int
+    header_cols: int
+
+    @classmethod
+    def of(cls, bundle: Bundle, table: dict) -> "Grid":
+        cells = [bundle.blocks[child] for child in table.get("children") or [] if child in bundle.blocks]
+        texts = {cell["id"]: plain(bundle.text(cell)) for cell in cells}
+        at = {}
+        for cell in cells:
+            for row in range(cell["row"], cell["row"] + cell.get("rowspan", 1)):
+                for col in range(cell["col"], cell["col"] + cell.get("colspan", 1)):
+                    at.setdefault((row, col), cell)
+        rows = max((r for r, _ in at), default=-1) + 1
+        cols = max((c for _, c in at), default=-1) + 1
+
+        def is_value(cell):
+            return bool(_VALUE_CELL.match(texts[cell["id"]]))
+
+        header_rows = 0
+        for row in range(rows):
+            line = [at[(row, col)] for col in range(cols) if (row, col) in at]
+            if any(cell.get("kind") == "columnHeader" for cell in line) or \
+                    (line and not any(is_value(cell) for cell in line if texts[cell["id"]])):
+                header_rows = row + 1
+            else:
+                break
+        header_rows = min(header_rows, rows - 1) if rows > 1 else 0
+        header_cols = 0
+        for col in range(cols):
+            line = [at[(row, col)] for row in range(header_rows, rows) if (row, col) in at]
+            if any(cell.get("kind") in ("rowHeader", "stubHead") for cell in line) or \
+                    (line and not any(is_value(cell) for cell in line if texts[cell["id"]])):
+                header_cols = col + 1
+            else:
+                break
+        header_cols = min(header_cols, cols - 1) if cols > 1 else 0
+        return cls(cells, texts, at, header_rows, header_cols)
+
+    def _label_like(self, cell) -> bool:
+        text = self.texts[cell["id"]]
+        return bool(text) and not _VALUE_CELL.match(text)
+
+    def row_headers(self, cell: dict) -> list[str]:
+        """The row header cells of `cell`, read from the grid: its row's header columns and the nearest
+        label-like cell to its left (a two-pair row 'Weight g | 140 | Insulation Class | F')."""
+        row, col = cell["row"], cell["col"]
+        seen, out = set(), []
+        for c in range(min(self.header_cols, col)):
+            other = self.at.get((row, c))
+            if other and other["id"] not in seen and self.texts[other["id"]]:
+                seen.add(other["id"])
+                out.append(self.texts[other["id"]])
+        for c in range(col - 1, -1, -1):
+            other = self.at.get((row, c))
+            if other and other is not cell and self._label_like(other):
+                if other["id"] not in seen:
+                    out.append(self.texts[other["id"]])
+                break
+        return out
+
+    def column_headers(self, cell: dict) -> list[str]:
+        """The column header cells over `cell`, top-down (a merged 'Torque' over 'Rated')."""
+        out, seen = [], set()
+        for col in range(cell["col"], cell["col"] + cell.get("colspan", 1)):
+            for row in range(min(self.header_rows, cell["row"])):
+                other = self.at.get((row, col))
+                if other and other["id"] not in seen and self.texts[other["id"]]:
+                    seen.add(other["id"])
+                    out.append(self.texts[other["id"]])
+        return out
+
+    def designations(self, axis: str) -> set[str]:
+        """The distinct model designations along the model axis: the header row(s) across the columns
+        (axis 'column') or the header column(s) down the rows (axis 'row')."""
+        names = set()
+        for (row, col), cell in self.at.items():
+            if axis == "column" and row < self.header_rows and col >= self.header_cols:
+                names.update(_norm(m) for m in _DESIGNATION.findall(self.texts[cell["id"]]))
+            if axis == "row" and col < self.header_cols and row >= self.header_rows:
+                names.update(_norm(m) for m in _DESIGNATION.findall(self.texts[cell["id"]]))
+        return names
+
+
+def _norm(name: str) -> str:
+    return re.sub(r"[^0-9a-z]", "", name.lower())
+
+
+def model_named(part_model: str, texts: list[str]) -> bool:
+    """`part_model` is named in one of `texts` as a whole designation ('AK80-6' is not inside 'AK80-64')."""
+    words = [re.escape(word) for word in re.split(r"[\s\-]+", part_model.strip()) if word]
+    pattern = r"(?<![a-z0-9])" + r"[\s\-]*".join(words) + r"(?![a-z0-9]|\.\d)"
+    return any(re.search(pattern, text, re.IGNORECASE) for text in texts)
+
+
+def _strip_designations(text: str) -> str:
+    return _DESIGNATION.sub(" ", text)
+
+
+def header_label(field: Field, texts: list[str]) -> str | None:
+    """The header text (or merged-header path) that names the field, or None. A header that names another
+    quantity besides the label ('Max Torque Density' is no peak torque) does not count; designations
+    ('KV60' in 'AK10-9 V3.0 KV60') are not labels."""
+    candidates = list(texts)
+    if len(texts) > 1:
+        candidates += [" ".join(texts), " ".join(reversed(texts))]
+    for text in candidates:
+        bare = _strip_designations(text)
+        if not label_found(field, bare):
+            continue
+        rest = bare
+        for pattern in field.labels + field.marks:
+            rest = re.sub(pattern, " ", rest, flags=re.IGNORECASE)
+        rest = bind._strip_units(bind._strip_parens(rest))
+        if bind._OTHER.search(rest):
+            continue
+        return text
+    return None
+
+
+def _cell_value_problems(field: Field, value, unit: str, condition: str, raw: str, label_text: str) -> list[str]:
+    """The number's place in the cell and the unit printed at it (or in its header)."""
+    text = plain(raw)
+    for cell in bind.cells_in(text):
+        for number in cell.numbers:
+            if float(value) not in number.options:
+                continue
+            problem = bind._place_problem(field.key, number, cell, condition or "", text)
+            if problem:
+                return [problem]
+            printed = sorted(cell.units[cell.numbers.index(number)])
+            if field.key == "gear_ratio" or unit == "":
+                return []
+            if printed:
+                return [] if unit in printed else [f"the number prints {printed[0]!r}, not the unit {unit!r}"]
+            if unit_found(unit, label_text) or unit_found(unit, text):
+                return []
+            return [f"the unit {unit!r} is printed neither at the number nor in its header {label_text!r}"]
+    return [f"no number of raw {raw!r} is {value!r}"]
+
+
+def check_value(row: dict, fields: dict[str, Field], bundle: Bundle, part_model: str | None,
+                grids: dict) -> Verdict:
+    key, printed = row.get("key"), str(row.get("value", "")).strip()
+    unit, raw, condition = row.get("unit"), row.get("raw") or "", (row.get("condition") or "").strip() or None
+    block_id = (row.get("id") or "").strip()
+    reasons: list[str] = []
+    cite, grounding, value = {"id": block_id}, [], None
+    field = fields.get(key)
+    if field is None:
+        return Verdict(str(key), printed, unit, raw, condition, cite, [], [f"{key!r} is not a requested field"], row)
+    try:
+        value = parse_value(printed, field)
+    except ValueError as error:
+        reasons.append(str(error))
+    if unit not in field.units:
+        reasons.append(f"unit {unit!r} is not one of {list(field.units)}")
+    block = bundle.blocks.get(block_id)
+    if block is None:
+        reasons.append(f"{block_id!r} is not an id in index.json")
+        return Verdict(key, value, unit, raw, condition, cite, [], reasons, row)
+    grounding = block.get("grounding") or []
+    if block["type"] in UNCITABLE:
+        reasons.append(f"{block_id} is a whole {block['type']}; a value cites the cell or block that prints it")
+    if block.get("represented") is False:
+        reasons.append(f"{block_id} was not converted by Markdownify (represented: false)")
+    own = plain(bundle.text(block))
+    if not plain(raw):
+        reasons.append("empty raw")
+    elif plain(raw) not in own:
+        reasons.append(f"raw {raw!r} is not inside {block_id}'s text {own[:120]!r}")
+    if value is not None:
+        reasons += value_problems(field, value, printed, plain(raw))
+    if reasons:
+        return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
+    if field.is_text:
+        if not label_found(field, own) and not label_found(field, plain(raw)):
+            reasons.append(f"{block_id}'s text carries none of {key!r}'s labels")
+        return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
+    if block["type"] == "table_cell":
+        table = bundle.table_of(block_id)
+        if table is None:
+            reasons.append(f"{block_id} belongs to no table in index.json")
+            return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
+        grid = grids.setdefault(table["id"], Grid.of(bundle, table))
+        row_texts, col_texts = grid.row_headers(block), grid.column_headers(block)
+        cite.update({"row": " / ".join(row_texts) or None, "column": " / ".join(col_texts) or None})
+        on_row, on_col = header_label(field, row_texts), header_label(field, col_texts)
+        in_cell = bind.read(key, value, unit, condition, plain(raw), own, None, tuple(fields.values()), None,
+                            part_model)
+        if on_row is not None:
+            label_text, model_axis, model_texts = on_row, "column", col_texts
+        elif on_col is not None:
+            label_text, model_axis, model_texts = on_col, "row", row_texts
+        elif not in_cell.problems and label_found(field, own):
+            label_text, model_axis, model_texts = own, None, []
+        else:
+            reasons.append(f"neither the row header {' / '.join(row_texts)!r} nor the column header "
+                           f"{' / '.join(col_texts)!r} carries one of {key!r}'s labels")
+            return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
+        reasons += _cell_value_problems(field, value, unit, condition, raw, label_text)
+        if model_axis is not None and len(grid.designations(model_axis)) >= 2:
+            cite["multi_model"] = True
+            if not part_model:
+                reasons.append(f"{table['id']} has one {model_axis} per model and no --part-model was given")
+            elif not model_named(part_model, model_texts):
+                reasons.append(f"{table['id']} has one {model_axis} per model, and this cell's {model_axis} header "
+                               f"{' / '.join(model_texts)!r} does not name {part_model!r}")
+        return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
+    # A prose block: robotparts' binding rule on the block's own text.
+    reading = bind.read(key, value, unit, condition, plain(raw), own, None, tuple(fields.values()), None, part_model)
+    if not label_found(field, own):
+        reasons.append(f"{block_id}'s text carries none of {key!r}'s labels")
+    else:
+        reasons += reading.problems
+    return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
+
+
+def check_part(row: dict | None, bundle: Bundle) -> dict | None:
+    """The part's manufacturer or model as the source names it: raw must be inside the cited block."""
+    if not row or not (row.get("value") or "").strip():
+        return None
+    block = bundle.blocks.get((row.get("id") or "").strip())
+    reasons = []
+    if block is None:
+        reasons.append(f"{row.get('id')!r} is not an id in index.json")
+    elif plain(row.get("raw") or "") not in plain(bundle.text(block)) or not plain(row.get("raw") or ""):
+        reasons.append(f"raw {row.get('raw')!r} is not inside {row.get('id')}'s text")
+    elif normal(row["value"]).lower() not in plain(row.get("raw") or "").lower():
+        reasons.append(f"value {row['value']!r} is not printed in raw {row.get('raw')!r}")
+    return {"value": row["value"], "raw": row.get("raw"), "cite": {"id": row.get("id")},
+            "grounding": block.get("grounding") if block else [], "verdict": "dropped" if reasons else "kept",
+            "reasons": reasons}
+
+
+SYSTEM_PROMPT = """You read manufacturers' datasheets. The datasheet below was converted to markdown, and every \
+block and every table cell starts with its id in ⟦…⟧ brackets, e.g. "⟦table_cell-41⟧ 20 Nm". You point at values \
+by id; a program then checks every one against the cited block or cell and throws away anything it cannot confirm. \
+It reads a table cell's row and column headers itself, from the table's structure. So:
+
+- Report only values the text states for EXACTLY the part named below. In a table with one column (or one row) per \
+model, cite only the cell in this model's column (or row). When you cannot tell which model a value belongs to, leave \
+it out.
+- `id`: the id of the smallest block or table cell that prints the number. For a table value that is the cell \
+holding the number — never the table, and never the row or column header cell.
+- `raw`: the part of that block's or cell's text that states the value, copied verbatim without the ⟦…⟧ tag, e.g. \
+"22Nm", "9:1", "Ф98*38.5", "18–52 V". In a cell, raw is text of that cell only.
+- `value`: the number exactly as printed in `raw` (decimal point or comma as printed, no thousands separators added, \
+no arithmetic, no unit conversion). A value in grams stays in grams.
+- `unit`: the label from the key's list that names the unit the source uses for that number — printed in the cell, \
+or in its row or column header.
+- `condition`: a few words when a stated condition matters ("at 48 V", "upper bound (≤)", "with driver"), else "".
+- Each key at most once. If the source gives one key at several conditions (24 V and 48 V), pick the one at the rated \
+voltage and say the condition.
+- When a key's definition does not match what the source means (a motor-side speed for an output-side key, a pole \
+count for pole pairs), leave the key out. Leaving a value out is always better than a doubtful value.
+- `part`: how the source names the part's manufacturer and model, each with the id of a block that prints it and \
+the raw text; "" when the source does not say.
+Reply with the JSON object only."""
+
+
+def output_schema(fields: tuple[Field, ...]) -> dict:
+    units = sorted({unit for field in fields for unit in field.units})
+    named = {"type": "object", "additionalProperties": False, "required": ["value", "raw", "id"],
+             "properties": {"value": {"type": "string"}, "raw": {"type": "string"}, "id": {"type": "string"}}}
+    return {
+        "type": "object", "additionalProperties": False, "required": ["part", "values"],
+        "properties": {
+            "part": {"type": "object", "additionalProperties": False, "required": ["manufacturer", "model"],
+                     "properties": {"manufacturer": named, "model": named}},
+            "values": {"type": "array", "items": {
+                "type": "object", "additionalProperties": False,
+                "required": ["key", "value", "unit", "raw", "condition", "id"],
+                "properties": {
+                    "key": {"type": "string", "enum": [field.key for field in fields]},
+                    "value": {"type": "string"},
+                    "unit": {"type": "string", "enum": units},
+                    "raw": {"type": "string"},
+                    "condition": {"type": "string"},
+                    "id": {"type": "string"},
+                }}},
+        }}
+
+
+def fields_prompt(fields: tuple[Field, ...]) -> list[str]:
+    lines = []
+    for field in fields:
+        units = ", ".join(repr(unit) for unit in field.units)
+        labels = ", ".join(repr(word) for word in field.words[:8])
+        what = field.guidance or field.definition
+        definition = f" Definition: {field.definition}" if field.definition and field.guidance else ""
+        if field.is_text:
+            lines.append(f"- `{field.key}` — {what}.{definition} Labels: {labels}. `value` is a comma-separated list "
+                         f"of these names: {', '.join(field.allowed)}; unit ''.")
+        else:
+            lines.append(f"- `{field.key}` — {what}.{definition} Labels: {labels}. Unit labels: {units}.")
+    return lines
+
+
+def build_prompt(bundle: Bundle, fields: tuple[Field, ...], part_model: str | None) -> str:
+    lines = ["# The part", f"- model: {part_model or 'the one this datasheet describes'}", "",
+             "# The keys (give only those the text states, in the unit labels listed)"]
+    lines += fields_prompt(fields)
+    lines += ["", "# The datasheet (markdown; ⟦id⟧ starts each block and table cell)", "", bundle.tagged()]
+    return "\n".join(lines) + "\n"
+
+
+def judge(output: dict | None, fields: tuple[Field, ...], bundle: Bundle, part_model: str | None) -> tuple[list[Verdict], dict]:
+    rows = list((output or {}).get("values") or [])
+    lookup, grids = by_key(fields), {}
+    verdicts = [check_value(row, lookup, bundle, part_model, grids) for row in rows]
+    cross_check(verdicts)
+    part = (output or {}).get("part") or {}
+    return verdicts, {"manufacturer": check_part(part.get("manufacturer"), bundle),
+                      "model": check_part(part.get("model"), bundle)}
