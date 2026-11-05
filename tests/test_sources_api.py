@@ -523,3 +523,34 @@ def test_the_review_author_defaults_to_git_user_name_then_the_os_user(tmp_path, 
     write_json(home / "config.json", {"author": "Reviewer R"})       # config.json still overrides
     assert server_module.author_of(home) == "Reviewer R"
     server_module.git_user_name.cache_clear()
+
+
+@needs_markdownify
+def test_a_map_op_assigns_a_printed_models_values_and_publishes_them(tmp_path, fake_model, isolated_cache):
+    home = tmp_path / "home"
+    app, server, client = start(home)
+    try:
+        client.post("/api/products", {"title": "Acme AX-10"})
+        client.post("/api/products", {"title": "Acme AX-20"})
+        _, batch = client.post_batch(files=[("ax.html", HTML.encode())], products=["acme-ax-10", "acme-ax-20"])
+        source_id = client.wait(batch["id"])["sources"][0]["id"]
+        review = f"/api/sources/{source_id}/review"
+        assert client.post(review, {"op": "map", "model": "AX-20", "product": "ghost"})[0] == 400
+        assert client.post(review, {"op": "map", "model": "AX-20"})[0] == 400
+        status, log = client.post(review, {"op": "map", "model": "AX-20", "product": "acme-ax-20"})
+        assert status == 200 and log["ops"][-1]["op"] == "map" and log["ops"][-1]["author"]
+        record = client.get(f"/api/sources/{source_id}")[1]["effective"]
+        assert record["models"] == {"AX-20": "acme-ax-20"}
+        kept = {row["key"]: row for row in record["values"] if row["verdict"] == "kept"}
+        assert kept["rated_torque"]["value"] == 20 and kept["rated_torque"]["products"] == ["acme-ax-20"]
+        mass = kept["mass"]["id"]
+        client.post(review, {"op": "unassign", "products": ["acme-ax-20"], "value_ids": [mass]})   # explicit wins
+        status, result = client.post(f"/api/sources/{source_id}/publish")
+        assert status == 200, result
+        sheet = read_json(home / "published" / "acme-ax-20" / f"{source_id}.json")
+        assert sorted((v["key"], v["value"]) for v in sheet["values"]) == [("peak_torque", 55), ("rated_torque", 20)]
+        assert not (home / "published" / "acme-ax-10").exists()
+        assert client.post(review, {"op": "map", "model": "AX-20", "product": None})[0] == 200    # unmap
+        assert client.post(f"/api/sources/{source_id}/publish")[0] == 400                       # nothing assigned
+    finally:
+        stop(app, server)

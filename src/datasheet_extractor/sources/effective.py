@@ -5,6 +5,11 @@
 - `reject` marks `rejected: true`; `restore` clears it. A rejected row stays in the record.
 - `add` appends a human row (`human: true`, its own grounding or `null`, never a borrowed AI one).
 - `assign` / `unassign` add / remove product ids on the named value ids (`"*"`: every value row at that point).
+- `map` records that a model the datasheet prints is one of your products (`product: null` unmaps): every value read
+  for that model (its `part_models`, else a cite row or column that names it) is assigned to the product. Remapping or
+  unmapping takes back only what the map gave, never a product an explicit `assign` put on a row. WHY per (value,
+  product) and in order: Markdownify §7.1 has explicit ops win over a map's default, and the log's rule is that the
+  last op on a value wins, so an assign or unassign after a map wins, and a map after them wins in its turn.
 - Ops apply in order, so the last op on a value wins. An op whose value is not in this values.json (one written
   against an earlier extraction) is listed in `unmatched`, never applied to a different value.
 
@@ -16,8 +21,10 @@ from __future__ import annotations
 
 import copy
 
+from .. import option1
+
 EDITABLE = ("key", "value", "unit", "raw", "condition", "grounding")
-OPS = ("edit", "reject", "restore", "add", "assign", "unassign")
+OPS = ("edit", "reject", "restore", "add", "assign", "unassign", "map")
 _AI_FIELDS = ("key", "value", "unit", "raw", "condition", "cite", "grounding", "verdict", "reasons", "part_models")
 
 
@@ -36,9 +43,17 @@ def _ai_row(row: dict, extracted_at: str | None) -> dict:
     return out
 
 
+def read_for(row: dict, model: str) -> bool:
+    """The value was read for `model`: a part-model run produced it, or its cite's row or column names the model."""
+    if model in (row.get("part_models") or []):
+        return True
+    cite = row.get("cite") or {}
+    return option1.model_named(model, [text for text in (cite.get("row"), cite.get("column")) if text])
+
+
 def effective(values: dict | None, review: dict | None, extracted_at: str | None = None) -> dict:
-    """{values: [row…], part: {manufacturer, model}, unmatched: [op index…]} — every row of values.json in order,
-    then the human rows in the order they were added."""
+    """{values: [row…], part: {manufacturer, model}, models: {model: product}, unmatched: [op index…]} — every row of
+    values.json in order, then the human rows in the order they were added."""
     values = values or {}
     rows = [_ai_row(row, extracted_at) for row in values.get("values") or [] if row.get("id")]
     part = {name: (_ai_row(entry, extracted_at) if entry and entry.get("id") else None)
@@ -46,6 +61,8 @@ def effective(values: dict | None, review: dict | None, extracted_at: str | None
     by_id = {row["id"]: row for row in rows}
     by_id.update({row["id"]: row for row in part.values() if row})
     unmatched = []
+    mapping: dict[str, str | None] = {}
+    by_map: dict[str, set[str]] = {}              # row id → the products on it only because a map put them there
     for index, op in enumerate((review or {}).get("ops") or []):
         kind = op.get("op")
         who = {"by": op.get("author"), "at": op.get("at")}
@@ -59,12 +76,30 @@ def effective(values: dict | None, review: dict | None, extracted_at: str | None
             rows.append(new)
             by_id[new["id"]] = new
             continue
+        if kind == "map":
+            model, product = op.get("model"), op.get("product")
+            old = mapping.get(model)
+            mapping[model] = product
+            for row in rows:
+                if row["human"] or not read_for(row, model):
+                    continue
+                mapped = by_map.setdefault(row["id"], set())
+                if old and old != product and old in mapped and \
+                        not any(other != model and target == old and read_for(row, other)
+                                for other, target in mapping.items()):
+                    row["products"] = [p for p in row["products"] if p != old]
+                    mapped.discard(old)
+                if product and product not in row["products"]:
+                    row["products"] = row["products"] + [product]
+                    mapped.add(product)
+            continue
         if kind in ("assign", "unassign"):
             wanted = op.get("value_ids") or []
             targets = rows if "*" in wanted else [by_id[i] for i in wanted if i in by_id]
             if not targets and wanted:
                 unmatched.append(index)
             for row in targets:
+                by_map.get(row["id"], set()).difference_update(op.get("products") or [])
                 if kind == "assign":
                     row["products"] = row["products"] + [p for p in op.get("products") or []
                                                          if p not in row["products"]]
@@ -87,7 +122,8 @@ def effective(values: dict | None, review: dict | None, extracted_at: str | None
             row["rejected"] = True
         elif kind == "restore":
             row["rejected"] = False
-    return {"values": rows, "part": part, "unmatched": unmatched}
+    return {"values": rows, "part": part, "models": {model: product for model, product in mapping.items() if product},
+            "unmatched": unmatched}
 
 
 def publishable(row: dict) -> bool:
@@ -132,6 +168,14 @@ def check_op(op: dict, values: dict | None, review: dict | None, known_products:
             return "add needs a row with at least a key"
         if row.get("id") in ids:
             return f"value id {row['id']!r} already exists"
+        return None
+    if kind == "map":
+        if not isinstance(op.get("model"), str) or not op["model"].strip():
+            return "map needs the model as the datasheet prints it"
+        if "product" not in op or not (op["product"] is None or isinstance(op["product"], str) and op["product"]):
+            return "map needs a product id (null unmaps the model)"
+        if op["product"] is not None and known_products is not None and op["product"] not in known_products:
+            return f"unknown product {op['product']!r}"
         return None
     if kind in ("assign", "unassign"):
         products, wanted = op.get("products"), op.get("value_ids")

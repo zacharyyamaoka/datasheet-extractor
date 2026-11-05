@@ -168,3 +168,61 @@ def test_check_op_rejects_unknown_ids_and_malformed_ops():
     added = _review({"op": "add", "row": {"id": "h1", "key": "kv", "value": 1}})
     assert eff.check_op({"op": "reject", "value_id": "h1"}, values, added) is None
     assert eff.check_op({"op": "reject", "value_id": "part.manufacturer@block-1"}, values, review) is None
+
+
+def _two_models():
+    """A comparison table read twice: rated torque per model, the mass printed once for both."""
+    values = _values()
+    values["values"][0]["part_models"] = ["LRS-350-24"]
+    values["values"][1]["part_models"] = ["LRS-350-48"]
+    values["values"][2].update(part_models=["LRS-350-24", "LRS-350-48"], verdict="kept")
+    values["extractor"]["part_models"] = [{"model": "LRS-350-24", "products": []},
+                                          {"model": "LRS-350-48", "products": []}]
+    return values
+
+
+def _products(record):
+    return {row["id"]: row["products"] for row in record["values"]}
+
+
+def test_map_assigns_the_values_read_for_that_model():
+    record = eff.effective(_two_models(), _review({"op": "map", "model": "LRS-350-24", "product": "p-24"}), AT)
+    assert _products(record) == {"rated_torque@cell-1": ["p-24"], "peak_torque@cell-2": [], "mass@cell-3": ["p-24"]}
+    assert record["models"] == {"LRS-350-24": "p-24"}
+    assert eff.products_of(record) == ["p-24"]
+    assert [v["id"] for v in eff.published("p-24", record, {})["values"]] == ["rated_torque@cell-1", "mass@cell-3"]
+
+
+def test_unmap_and_remap_take_back_only_what_the_map_gave():
+    record = eff.effective(_two_models(), _review(
+        {"op": "map", "model": "LRS-350-24", "product": "p-24"},
+        {"op": "assign", "products": ["p-24"], "value_ids": ["mass@cell-3"]},
+        {"op": "map", "model": "LRS-350-24", "product": None}), AT)
+    assert _products(record) == {"rated_torque@cell-1": [], "peak_torque@cell-2": [], "mass@cell-3": ["p-24"]}
+    assert record["models"] == {}
+    record = eff.effective(_two_models(), _review(
+        {"op": "map", "model": "LRS-350-24", "product": "p-24"},
+        {"op": "map", "model": "LRS-350-24", "product": "p-24b"}), AT)
+    assert _products(record) == {"rated_torque@cell-1": ["p-24b"], "peak_torque@cell-2": [], "mass@cell-3": ["p-24b"]}
+
+
+def test_last_op_wins_between_map_and_assign():
+    map_24 = {"op": "map", "model": "LRS-350-24", "product": "p-24"}
+    unassign = {"op": "unassign", "products": ["p-24"], "value_ids": ["mass@cell-3"]}
+    assign_other = {"op": "assign", "products": ["p-24"], "value_ids": ["peak_torque@cell-2"]}
+    after = eff.effective(_two_models(), _review(map_24, unassign, assign_other), AT)      # explicit ops after win
+    assert _products(after) == {"rated_torque@cell-1": ["p-24"], "peak_torque@cell-2": ["p-24"], "mass@cell-3": []}
+    before = eff.effective(_two_models(), _review(unassign, map_24), AT)                  # a later map wins
+    assert _products(before)["mass@cell-3"] == ["p-24"]
+    unmapped = eff.effective(_two_models(), _review(map_24, assign_other, dict(map_24, product=None)), AT)
+    assert _products(unmapped) == {"rated_torque@cell-1": [], "peak_torque@cell-2": ["p-24"], "mass@cell-3": []}
+
+
+def test_a_map_op_is_checked():
+    values = _two_models()
+    assert eff.check_op({"op": "map", "model": "LRS-350-24", "product": "p-24"}, values, None, {"p-24"}) is None
+    assert eff.check_op({"op": "map", "model": "LRS-350-24", "product": None}, values, None, {"p-24"}) is None
+    assert "unknown product" in eff.check_op({"op": "map", "model": "LRS-350-24", "product": "ghost"}, values, None,
+                                             {"p-24"})
+    assert "model" in eff.check_op({"op": "map", "model": "", "product": "p-24"}, values, None, {"p-24"})
+    assert "product" in eff.check_op({"op": "map", "model": "LRS-350-24"}, values, None, {"p-24"})

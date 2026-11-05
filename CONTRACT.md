@@ -61,7 +61,9 @@ the dead process and appends `failed` to the history for that step (a source it 
 
 values.json with review.json applied in order (last op on a value wins): edit replaces a field and keeps `ai` = the
 original; reject marks `rejected: true`; restore clears it; add appends a human row (`human: true`, its own grounding
-or `null`); assign/unassign set `products`. A published datasheet is one product's view:
+or `null`); assign/unassign set `products`; map `{model, product|null}` assigns the values read for that model
+(`part_models`, or a cite row/column naming it) to the product — per value and product the last op wins, and an
+unmap takes back only what the map gave (the record's `models` lists the current mappings). A published datasheet is one product's view:
 `{product, source: {sha256, url, retrieved_at}, values: [{id, key, value, unit, raw, grounding, provenance: {by:
 "ai"|"<author>", at, ai?: <original>}}]}` — rejected values left out, every value still pointing at its source.
 

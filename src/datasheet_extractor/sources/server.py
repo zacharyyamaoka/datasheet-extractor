@@ -267,7 +267,8 @@ class App:
         record = effective_module.effective(values, self.store.review(source["id"]), self.store.extracted_at(source))
         assigned = effective_module.products_of(record)
         if not assigned:
-            raise ApiError(400, "no value is assigned to a product (an assign op maps value ids to products)")
+            raise ApiError(400, "no value is assigned to a product (an assign op maps value ids to products, a map op "
+                                "a printed model's values)")
         datasheets = {product: effective_module.published(product, record, values.get("source"))
                       for product in assigned}
         paths = self.store.write_published(source["id"], datasheets)
