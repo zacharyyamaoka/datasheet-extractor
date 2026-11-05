@@ -27,6 +27,7 @@ so the model still reads the table as a table.
 from __future__ import annotations
 
 import dataclasses
+import html
 import json
 import pathlib
 import re
@@ -43,6 +44,11 @@ UNCITABLE = {"table", "figure", "plot", "diagram"}
 
 # A cell that states a value: it starts with a number (after a sign, a comparison or a diameter mark).
 _VALUE_CELL = re.compile(r"^[\s≤≥<>~≈±+\-−]*[" + bind.DIAMETER_MARKS + r"]?\s*\d")
+# A model name that starts with a digit: the whole cell is one word, digits then two or more capitals glued to a digit
+# ('60ASM200-1024C/2500C', '86HS45'). WHY: JMC's selection list has one row per model; read as a value cell, its
+# model column was no header column, so no row had a label and the checker could not tell which model a row owns.
+# A unit glued to its number ('48VDC', '150mVp-p', '24VAC/48VAC') never has a digit right after its capitals.
+_MODEL_NAME = re.compile(r"^\d+[A-Z]{2,}\d[\w.\-/]*$")
 # A model designation: one to three letters (and maybe a dash and two more) then a digit ('KM80-9', 'AK10-9',
 # 'AKE40-6', 'V3.0', 'KV60', 'DM-J8009-2EC'). WHY not any word with a digit: a footnote marker glued to a label
 # ('Rated torque2', 'Peak torque1') is a label, and stripping it as a designation hid the label.
@@ -64,14 +70,24 @@ def run_mdify(source: pathlib.Path, bundle_dir: pathlib.Path) -> tuple[float, st
 
 
 def plain(text: str) -> str:
-    """A block's markdown as the words it prints: no HTML tags, no link targets, no escapes, no emphasis marks."""
+    """A block's markdown as the words it prints: no HTML tags, no link targets, no escapes, no emphasis marks, and
+    HTML entities read as the characters they print.
+    WHY entities here, once: Markdownify writes a table with merged cells as an HTML <table>, so its cells carry
+    '&#126;' for '~' and '&amp;' for '&' (LRS-350); a model may copy either spelling, both mean the same printed text,
+    and every checker (Option 1, open mode) reads cell, block and raw text through this one function. Tags go first,
+    so an entity's '<' is text, never the start of a tag."""
     text = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\\([^\w\s])", r"\1", text)
     text = text.replace("**", "").replace("`", "")
     text = re.sub(re.escape(TAG_OPEN) + r"[^" + re.escape(TAG_CLOSE) + r"]*" + re.escape(TAG_CLOSE), " ", text)
-    return normal(text)
+    return normal(html.unescape(text))
+
+
+def is_value_cell(text: str) -> bool:
+    """A cell's plain text states a value: it starts with a number, and is not a model name that starts with one."""
+    return bool(_VALUE_CELL.match(text)) and not _MODEL_NAME.match(text)
 
 
 @dataclasses.dataclass
@@ -91,6 +107,10 @@ class Bundle:
         span = block.get("range")
         return self.markdown[span["start"]:span["end"]] if span else ""
 
+    def printed(self, block: dict) -> str:
+        """The block's or cell's text as it prints (`plain` of its document.md range): what every check reads."""
+        return plain(self.text(block))
+
     def label_before(self, block: dict) -> dict | None:
         """The block right before `block` in the markdown, when it is a short label with no number of its own."""
         prior = [b for b in self.index["blocks"] if b.get("range") and b["type"] in ("paragraph", "list_item", "heading")
@@ -98,7 +118,7 @@ class Bundle:
         if not prior:
             return None
         label = max(prior, key=lambda b: b["range"]["end"])
-        text = plain(self.text(label))
+        text = self.printed(label)
         between = self.markdown[label["range"]["end"]:block["range"]["start"]]
         if len(text) > MAX_LABEL_BLOCK or re.search(r"\d", text) or between.strip():
             return None
@@ -133,7 +153,7 @@ class Grid:
     @classmethod
     def of(cls, bundle: Bundle, table: dict) -> "Grid":
         cells = [bundle.blocks[child] for child in table.get("children") or [] if child in bundle.blocks]
-        texts = {cell["id"]: plain(bundle.text(cell)) for cell in cells}
+        texts = {cell["id"]: bundle.printed(cell) for cell in cells}
         at = {}
         for cell in cells:
             for row in range(cell["row"], cell["row"] + cell.get("rowspan", 1)):
@@ -143,7 +163,7 @@ class Grid:
         cols = max((c for _, c in at), default=-1) + 1
 
         def is_value(cell):
-            return bool(_VALUE_CELL.match(texts[cell["id"]]))
+            return is_value_cell(texts[cell["id"]])
 
         header_rows = 0
         for row in range(rows):
@@ -167,7 +187,7 @@ class Grid:
 
     def _label_like(self, cell) -> bool:
         text = self.texts[cell["id"]]
-        return bool(text) and not _VALUE_CELL.match(text)
+        return bool(text) and not is_value_cell(text)
 
     def own_label(self, cell: dict) -> str | None:
         """The nearest label-like cell to the left of `cell` in its row: its row label ('Weight g' in a two-pair
@@ -209,10 +229,12 @@ class Grid:
         (axis 'column') or the header column(s) down the rows (axis 'row')."""
         names = set()
         for (row, col), cell in self.at.items():
-            if axis == "column" and row < self.header_rows and col >= self.header_cols:
-                names.update(_norm(m) for m in _DESIGNATION.findall(self.texts[cell["id"]]))
-            if axis == "row" and col < self.header_cols and row >= self.header_rows:
-                names.update(_norm(m) for m in _DESIGNATION.findall(self.texts[cell["id"]]))
+            if (axis == "column" and row < self.header_rows and col >= self.header_cols) or \
+                    (axis == "row" and col < self.header_cols and row >= self.header_rows):
+                text = self.texts[cell["id"]]
+                names.update(_norm(m) for m in _DESIGNATION.findall(text))
+                if _MODEL_NAME.match(text):
+                    names.add(_norm(text))
         return names
 
 
@@ -298,7 +320,7 @@ def check_value(row: dict, fields: dict[str, Field], bundle: Bundle, part_model:
         reasons.append(f"{block_id} is a whole {block['type']}; a value cites the cell or block that prints it")
     if block.get("represented") is False:
         reasons.append(f"{block_id} was not converted by Markdownify (represented: false)")
-    own = plain(bundle.text(block))
+    own = bundle.printed(block)
     if not plain(raw):
         reasons.append("empty raw")
     elif plain(raw) not in own:
@@ -357,12 +379,12 @@ def check_value(row: dict, fields: dict[str, Field], bundle: Bundle, part_model:
         # WHY: a spec sheet laid out as label and value in two blocks ('Peak Torque', then '19.94Nm', as DEEP
         # Robotics' page prints it) is a definition list; its label is the label-only block right before it. The
         # pair is read as one text, so the binding rule still holds (no other number between them).
-        if label is None or not label_found(field, plain(bundle.text(label))):
+        if label is None or not label_found(field, bundle.printed(label)):
             reasons.append(f"{block_id}'s text carries none of {key!r}'s labels, nor does a label-only block "
                            "right before it")
             return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
         cite["label_id"] = label["id"]
-        cite["row"] = plain(bundle.text(label))
+        cite["row"] = bundle.printed(label)
         own = cite["row"] + " " + own
         grounding = (label.get("grounding") or []) + grounding
     reasons += bind.read(key, value, unit, condition, plain(raw), own, None, tuple(fields.values()), None,
@@ -378,7 +400,7 @@ def check_part(row: dict | None, bundle: Bundle) -> dict | None:
     reasons = []
     if block is None:
         reasons.append(f"{row.get('id')!r} is not an id in index.json")
-    elif plain(row.get("raw") or "") not in plain(bundle.text(block)) or not plain(row.get("raw") or ""):
+    elif plain(row.get("raw") or "") not in bundle.printed(block) or not plain(row.get("raw") or ""):
         reasons.append(f"raw {row.get('raw')!r} is not inside {row.get('id')}'s text")
     elif normal(row["value"]).lower() not in plain(row.get("raw") or "").lower():
         reasons.append(f"value {row['value']!r} is not printed in raw {row.get('raw')!r}")

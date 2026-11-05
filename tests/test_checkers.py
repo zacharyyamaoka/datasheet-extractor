@@ -166,3 +166,43 @@ def test_option1_label_block_right_before_a_value_block():
     wrong = _check(bundle, {"key": "peak_torque", "value": "24.18", "unit": "N·m", "raw": "24.18rad/s",
                             "id": speed["id"]}, "J60-6")
     assert not wrong.kept
+
+
+def _hand_cell(bundle, text, row_label):
+    grid = option1.Grid.of(bundle, next(b for b in bundle.index["blocks"] if b["type"] == "table"))
+    return next(c["id"] for c in grid.cells if grid.texts[c["id"]] == text and row_label in grid.row_headers(c))
+
+
+def test_option1_reads_html_entities_as_the_characters_they_print():
+    # Markdownify writes a merged-cell table as HTML, so '~' arrives as '&#126;'; the cell is still a range
+    from test_sources_extraction import table_bundle
+
+    table = table_bundle([["Parameter", "Value"], ["Input voltage (V)", "0 &#126; 14.6"]])
+    cell = _hand_cell(table, "0 ~ 14.6", "Input voltage (V)")
+    for raw in ("0 &#126; 14.6", "0 ~ 14.6"):
+        high = _check(table, {"key": "voltage_max", "value": "14.6", "unit": "V", "raw": raw, "id": cell}, None)
+        assert high.kept, (raw, high.reasons)
+        low = _check(table, {"key": "voltage_min", "value": "0", "unit": "V", "raw": raw, "id": cell}, None)
+        assert not low.kept and "126" not in " ".join(low.reasons)
+        torque = _check(table, {"key": "rated_torque", "value": "14.6", "unit": "N·m", "raw": raw, "id": cell}, None)
+        assert not torque.kept
+
+
+def test_option1_a_model_name_that_starts_with_a_digit_is_a_row_label():
+    # JMC's selection list: one row per model, specs as columns; the target model is the second row
+    from test_sources_extraction import table_bundle
+
+    jmc = table_bundle([["Model", "Rated power (W)", "Rated torque (Nm)"],
+                        ["60ASM100-1024C/2500C", "100", "0.32"],
+                        ["60ASM200-1024C/2500C", "200", "0.64"]])
+    grid = option1.Grid.of(jmc, next(b for b in jmc.index["blocks"] if b["type"] == "table"))
+    assert grid.header_cols == 1
+    right = _hand_cell(jmc, "0.64", "60ASM200-1024C/2500C")
+    wrong = _hand_cell(jmc, "0.32", "60ASM100-1024C/2500C")
+    kept = _check(jmc, {"key": "rated_torque", "value": "0.64", "unit": "N·m", "raw": "0.64", "id": right},
+                  "60ASM200-1024C/2500C")
+    assert kept.kept, kept.reasons
+    assert kept.cite["row"] == "60ASM200-1024C/2500C" and kept.cite["multi_model"]
+    dropped = _check(jmc, {"key": "rated_torque", "value": "0.32", "unit": "N·m", "raw": "0.32", "id": wrong},
+                     "60ASM200-1024C/2500C")
+    assert not dropped.kept and "does not name" in " ".join(dropped.reasons)

@@ -122,8 +122,8 @@ def test_open_mode_reads_html_entities_as_the_characters_they_print():
                           ["RIPPLE &amp; NOISE (max.)", "120mVp-p", "150mVp-p"],
                           ["VOLTAGE ADJ. RANGE", "10.2 &#126; 13.8V", "21.6 &#126; 28.8V"]])
     rows = [{"label": "RIPPLE & NOISE (max.)", "value": "150", "unit": "mVp-p", "raw": "150mVp-p",
-             "id": _cell(table, "150mVp-p", "RIPPLE &amp; NOISE (max.)")},
+             "id": _cell(table, "150mVp-p", "RIPPLE & NOISE (max.)")},
             {"label": "VOLTAGE ADJ. RANGE", "value": "21.6 ~ 28.8V", "unit": "V", "raw": "21.6 &#126; 28.8V",
-             "id": _cell(table, "21.6 &#126; 28.8V", "VOLTAGE ADJ. RANGE")}]
+             "id": _cell(table, "21.6 ~ 28.8V", "VOLTAGE ADJ. RANGE")}]
     verdicts, _ = open_mode.judge({"values": [dict(row, condition="") for row in rows]}, table, "LRS-350-24")
     assert [(v.key, v.reasons) for v in verdicts] == [("spec.ripple_noise_max", []), ("spec.voltage_adj_range", [])]
