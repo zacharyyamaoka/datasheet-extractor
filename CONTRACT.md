@@ -45,7 +45,7 @@ the dead process and appends `failed` to the history for that step (a source it 
 
 | method + path | does |
 |---|---|
-| `GET /api/fields` | categories available (`fields/*.json`) |
+| `GET /api/fields` | categories available (`fields/*.json`), each with `labels: {key: label}` (a field's first label as written; `{}` in open mode) |
 | `GET /api/products` | `[{id, title, provider}]` from the provider + `products.json` |
 | `POST /api/products` `{title}` | creates a product here (id = slug); returns it |
 | `GET /api/batches` | batches, newest first, each with its sources' `{id, name, kind, stage, error}` |

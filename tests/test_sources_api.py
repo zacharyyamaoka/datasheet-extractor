@@ -210,6 +210,11 @@ def test_fields_and_products(tmp_path):
     try:
         status, fields = client.get("/api/fields")
         assert status == 200 and "actuator" in [row["category"] for row in fields]
+        by_category = {row["category"]: row for row in fields}
+        actuator = json.loads((pathlib.Path(__file__).resolve().parents[1] / "fields" / "actuator.json").read_text())
+        assert by_category["actuator"]["labels"] == {row["key"]: row["labels"][0] for row in actuator}
+        assert by_category["actuator"]["labels"]["peak_torque"] == "peak torque"
+        assert all(row["labels"] == {} for row in fields if row["mode"] == "open")
         assert client.get("/api/products") == (200, [])
         status, product = client.post("/api/products", {"title": "Acme AX-10"})
         assert status == 201 and product == {"id": "acme-ax-10", "title": "Acme AX-10", "provider": "file"}

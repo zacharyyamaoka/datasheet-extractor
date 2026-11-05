@@ -3,7 +3,7 @@
 A stdlib ThreadingHTTPServer on 127.0.0.1: the page in `web/` at `/`, the API at `/api/*`. It prints the URL and
 opens no browser window. WHY: Zach's no-focus-steal rule — a tool never fronts a window (as `mdify view`).
 
-    GET  /api/fields                       categories available (fields/*.json)
+    GET  /api/fields                       categories available (fields/*.json), each with labels {key: label}
     GET  /api/products                     [{id, title, provider}]
     POST /api/products {title}             a product created here (id = slug), in <home>/products.json
     GET  /api/batches                      newest first, each with its sources' {id, name, kind, stage, running,
@@ -118,12 +118,15 @@ class App:
         out = []
         for category in extraction.categories():
             if extraction.is_open(category):
-                out.append({"category": category, "mode": "open", "fields": 0, "keys": [],
+                out.append({"category": category, "mode": "open", "fields": 0, "keys": [], "labels": {},
                             "note": "open mode: every specification the source states, keyed spec.<printed label>"})
                 continue
             rows = read_json(extraction.fields_path(category), []) or []
+            # WHY the first label as written: it is the field list's own name for the key, so the page shows
+            # 'peak torque' rather than 'peak_torque', and shows it as the file spells it.
             out.append({"category": category, "mode": "fields", "fields": len(rows),
-                        "keys": [row["key"] for row in rows]})
+                        "keys": [row["key"] for row in rows],
+                        "labels": {row["key"]: (row.get("labels") or [row["key"]])[0] for row in rows}})
         return out
 
     def batches(self) -> list[dict]:
