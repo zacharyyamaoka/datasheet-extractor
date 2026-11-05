@@ -188,6 +188,19 @@ def test_option1_reads_html_entities_as_the_characters_they_print():
         assert not torque.kept
 
 
+def test_stored_raw_is_the_decoded_text_and_the_model_copy_stays_in_proposed():
+    # WHY: raw is what the source prints (truthful rendering); the model's '&#126;' copy is kept as proposed.raw
+    from test_sources_extraction import table_bundle
+
+    table = table_bundle([["Parameter", "Value"], ["Input voltage (V)", "0 &#126; 14.6"]])
+    cell = _hand_cell(table, "0 ~ 14.6", "Input voltage (V)")
+    row = {"key": "voltage_max", "value": "14.6", "unit": "V", "raw": "0 &#126; 14.6", "id": cell}
+    stored = _check(table, row, None).to_dict()
+    assert stored["raw"] == "0 ~ 14.6" and stored["proposed"]["raw"] == "0 &#126; 14.6"
+    plain_row = _check(table, dict(row, raw="0 ~ 14.6"), None).to_dict()
+    assert plain_row["raw"] == "0 ~ 14.6" and plain_row["proposed"]["raw"] == "0 ~ 14.6"
+
+
 def test_option1_a_model_name_that_starts_with_a_digit_is_a_row_label():
     # JMC's selection list: one row per model, specs as columns; the target model is the second row
     from test_sources_extraction import table_bundle

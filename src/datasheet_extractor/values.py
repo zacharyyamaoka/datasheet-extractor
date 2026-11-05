@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import html
 import json
 import pathlib
 import re
@@ -122,7 +123,10 @@ class Verdict:
         return not self.reasons
 
     def to_dict(self) -> dict:
-        row = {"key": self.key, "value": self.value, "unit": self.unit, "raw": self.raw, "condition": self.condition}
+        # WHY decoded here, once, for every option and mode: raw is what the source prints, and Markdownify writes
+        # merged-cell tables as HTML with '&#126;' for '~'; the model's own copy stays in `proposed.raw`.
+        row = {"key": self.key, "value": self.value, "unit": self.unit, "raw": html.unescape(self.raw),
+               "condition": self.condition}
         if self.cite is not None:
             row["cite"] = self.cite
         row.update({"grounding": self.grounding, "verdict": "kept" if self.kept else "dropped",
