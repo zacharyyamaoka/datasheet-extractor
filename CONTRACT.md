@@ -21,6 +21,7 @@ Serves on 127.0.0.1, prints the URL, opens no window. State lives in `--home` (d
 ```
 batches/<batch id>/batch.json     {id, created_at, label, category, products: [product ids], sources: [source id…]}
 sources/<source id>/source.json   {id, batch, kind: "file"|"url", name, url?, capture_keep, stage, error?, sha256?,
+                                   category? (default: the batch's; a batch can mix a servo and a power supply),
                                    bundle: "<abs path of the Markdownify bundle>", history: [{stage, at}]}
 sources/<source id>/values.json   the extractor's output (CONTRACT §7), never rewritten after extraction
 sources/<source id>/review.json   human ops (CONTRACT §7.1), append-only
@@ -48,7 +49,7 @@ Extract = Option 1 with the logged-in CLI (default claude), the batch's category
 | `GET /api/sources/<id>` | `{source, values, review, effective}` — `effective` = values ⊕ review (§5) |
 | `GET /api/sources/<id>/file/<name>` | a bundle file (`source.<ext>`, `index.json`, `document.md`, `snapshot.jpg`) |
 | `POST /api/sources/<id>/review` `{op…}` | appends one §7.1 op; the server stamps `author` (config, default the OS user) and `at`; returns review.json |
-| `POST /api/sources/<id>/extract` `{model?}` | (re)runs extraction as a background job |
+| `POST /api/sources/<id>/extract` `{model?, category?}` | (re)runs extraction as a background job; `category` is saved to source.json first (a category with no `fields/<category>.json` runs open mode: every specification the source states, keyed `spec.<printed label>`) |
 | `GET /api/sources/<id>/prompt` (text) | a prompt any AI agent can run: the command line for this machine, then the source path/URL, the fields, and where to write values.json |
 | `POST /api/sources/<id>/publish` | writes `published/<product>/<source>.json` for every assigned product; stage → published |
 

@@ -19,7 +19,9 @@ REPO = extraction.ROOT
 def prompt(home: pathlib.Path, source: dict, batch: dict, products: list[dict], products_spec: str | None) -> str:
     directory = pathlib.Path(home) / "sources" / source["id"]
     bundle = pathlib.Path(source["bundle"])
-    fields = extraction.fields_path(batch.get("category") or "")
+    category = extraction.category_of(source, batch) or ""
+    fields = extraction.fields_path(category)
+    open_ = extraction.is_open(category)
     target = directory / "values.json"
     command = ["uv", "run", "--directory", str(REPO), "python", "-m", "datasheet_extractor.sources.extraction",
                "--home", str(home), source["id"]]
@@ -34,7 +36,7 @@ def prompt(home: pathlib.Path, source: dict, batch: dict, products: list[dict], 
         models = extraction.part_models(option1.Bundle.load(bundle), products)
     lines = [
         f"Extract datasheet values from one source of the Datasheet Extractor's queue (source {source['id']}, "
-        f"batch {batch.get('id')}, category {batch.get('category')}).",
+        f"batch {batch.get('id')}, category {category}{' — open mode' if open_ else ''}).",
         "",
         f"1. Run this on {socket.gethostname()} (it calls the logged-in `claude` CLI; add `--model codex` for Codex):",
         "",
@@ -48,7 +50,9 @@ def prompt(home: pathlib.Path, source: dict, batch: dict, products: list[dict], 
         f"- Markdownify bundle: {bundle} (document.md, index.json — cite a block or table-cell id from index.json)"
         + ("" if (bundle / "index.json").is_file()
            else f" — not made yet; the source is at stage `{source['stage']}`"),
-        f"- Fields: {fields}",
+        ("- Fields: none — open mode: give every specification the source states as {label (as printed), value, "
+         "unit, raw, condition, id}; its key is `spec.` + the label's slug (sources/open_mode.py)"
+         if open_ else f"- Fields: {fields}"),
         f"- Products: {', '.join(p.get('title') or p['id'] for p in products) or 'none'}",
     ]
     if models is not None:
@@ -60,9 +64,10 @@ def prompt(home: pathlib.Path, source: dict, batch: dict, products: list[dict], 
         "  Format: /home/bam/markdownify/CONTRACT.md §7 (schema extractor/values@0; every value with an id "
         "\"<key>@<cite id>\", verdict kept or dropped with reasons). The single-model equivalent of step 1 is",
         "",
-        "    " + shlex.join(["uv", "run", "--directory", str(REPO), "extract", local or "<source file>", "--fields",
-                             str(fields), "--option", "1", "--bundle", str(bundle), "--out", str(directory)]
-                            + (["--part-model", models[0][0]] if models and models[0][0] else [])),
+        "    " + ("(none in open mode: `extract` takes a field list; use step 1)" if open_ else
+                  shlex.join(["uv", "run", "--directory", str(REPO), "extract", local or "<source file>", "--fields",
+                              str(fields), "--option", "1", "--bundle", str(bundle), "--out", str(directory)]
+                             + (["--part-model", models[0][0]] if models and models[0][0] else []))),
         "",
         "Do not overwrite an existing values.json; ask the queue to re-extract instead "
         f"(POST /api/sources/{source['id']}/extract).",

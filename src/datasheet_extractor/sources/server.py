@@ -11,7 +11,7 @@ opens no browser window. WHY: Zach's no-focus-steal rule — a tool never fronts
     GET  /api/sources/<id>                 {source, values, review, effective}
     GET  /api/sources/<id>/file/<name>     one file of the source's bundle
     POST /api/sources/<id>/review {op…}    appends one op (author and at stamped here); returns review.json
-    POST /api/sources/<id>/extract {model?}   (re)runs extraction in the background
+    POST /api/sources/<id>/extract {model?, category?}   sets the source's category, (re)runs extraction
     GET  /api/sources/<id>/prompt          text/plain: the prompt for any AI agent
     POST /api/sources/<id>/publish         published/<product>/<source>.json for every assigned product
 """
@@ -101,8 +101,13 @@ class App:
     def fields(self) -> list[dict]:
         out = []
         for category in extraction.categories():
+            if extraction.is_open(category):
+                out.append({"category": category, "mode": "open", "fields": 0, "keys": [],
+                            "note": "open mode: every specification the source states, keyed spec.<printed label>"})
+                continue
             rows = read_json(extraction.fields_path(category), []) or []
-            out.append({"category": category, "fields": len(rows), "keys": [row["key"] for row in rows]})
+            out.append({"category": category, "mode": "fields", "fields": len(rows),
+                        "keys": [row["key"] for row in rows]})
         return out
 
     def batches(self) -> list[dict]:
@@ -218,11 +223,24 @@ class App:
         model = body.get("model") or "claude"
         if model not in ("claude", "codex"):
             raise ApiError(400, f"model is claude or codex, not {model!r}")
+        category = body.get("category")
+        if category is not None and category not in extraction.categories():
+            raise ApiError(400, f"category is one of {extraction.categories()}, not {category!r}")
+        if category is not None:
+            source = self.store.update_source(source["id"], category=category)
+        effective_category = extraction.category_of(source, self.store.batch(source["batch"]) or {})
         if not jobs.bundle_complete(pathlib.Path(source["bundle"])):
+            with self.queue.lock:
+                pending = source["id"] in self.queue.active
+            if category is not None and pending:
+                # WHY accept it before conversion: the UI's per-source picker can be set while the source is still
+                # queued; the job reads source.json's category when it reaches extraction.
+                return {"queued": None, "category": effective_category,
+                        "note": f"category saved; source {source['id']} extracts after conversion"}
             raise ApiError(409, f"source {source['id']} has no complete bundle yet (stage {source['stage']})")
         if not self.queue.submit(source["id"], re_extract=True, backend=model):
             raise ApiError(409, f"source {source['id']} already has a job running")
-        return {"queued": source["id"], "model": model}
+        return {"queued": source["id"], "model": model, "category": effective_category}
 
     def publish(self, source_id: str) -> dict:
         source = self.source(source_id)

@@ -1,7 +1,7 @@
 """Product providers: where a batch's products come from (CONTRACT §1 `--products`, §4 `/api/products`).
 
-- `robotparts:<repo>`: every `<repo>/parts/*/part.json`, read-only (id, title, model). This module is the only place
-  that knows RobotParts exists.
+- `robotparts:<repo>`: every `<repo>/parts/*/part.json` and `parts/*/part.py`, read-only (id, title, model). This
+  module is the only place that knows RobotParts exists.
 - `file:<path>`: a products.json of `[{id, title, created_at}]`. The default is `<home>/products.json`.
 
 Products created here (`POST /api/products`) are written to `<home>/products.json` only, whatever the provider.
@@ -11,6 +11,7 @@ appear in RobotParts' tree uninvited.
 
 from __future__ import annotations
 
+import ast
 import json
 import pathlib
 import re
@@ -23,6 +24,26 @@ def slug(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", (title or "").lower()).strip("-")
 
 
+def part_py(path: pathlib.Path) -> dict | None:
+    """id, brand, model and title of a RobotParts part.py: the literal arguments of its `RobotPart(...)` call.
+    WHY an `ast` read and never an import: a part.py is code from a pull request (RobotParts' own build reads it the
+    same way, build/robotparts2/partpy.py), and this provider needs four strings, not the part."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, ValueError):
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "RobotPart":
+            record = {}
+            if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                record["id"] = node.args[0].value
+            for keyword in node.keywords:
+                if keyword.arg in ("id", "brand", "model", "title") and isinstance(keyword.value, ast.Constant):
+                    record[keyword.arg] = keyword.value.value
+            return record
+    return None
+
+
 class RobotParts:
     def __init__(self, repo: pathlib.Path) -> None:
         self.repo = pathlib.Path(repo)
@@ -30,12 +51,16 @@ class RobotParts:
 
     def list(self) -> list[dict]:
         products = []
-        for path in sorted((self.repo / "parts").glob("*/part.json")):
-            try:
-                record = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                continue
-            if not record.get("id"):
+        for directory in sorted(path for path in (self.repo / "parts").iterdir() if path.is_dir()):
+            record = None
+            if (directory / "part.py").is_file():
+                record = part_py(directory / "part.py")
+            elif (directory / "part.json").is_file():
+                try:
+                    record = json.loads((directory / "part.json").read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    record = None
+            if not record or not record.get("id"):
                 continue
             title = record.get("title") or " ".join(filter(None, (record.get("brand"), record.get("model")))) \
                 or record["id"]

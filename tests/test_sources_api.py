@@ -77,6 +77,13 @@ class FakeModel:
         self.calls.append(part_model)
         if any(marker in prompt for marker in self.fail_on):
             return llm.LlmResult(backend, None, None, "the fake model was told to fail", run_dir, "fake 1", 0.01)
+        if "Report EVERY specification" in system_prompt:                    # open mode
+            rows = [{"label": "Weight", "value": "480", "unit": "g", "raw": "Weight 480 g", "condition": "",
+                     "id": _cite(prompt, "Weight 480 g")},
+                    {"label": "Efficiency", "value": "89", "unit": "%", "raw": "89%", "condition": "",
+                     "id": _cite(prompt, "Weight 480 g")}]
+            part = {"manufacturer": {"value": "", "raw": "", "id": ""}, "model": {"value": "", "raw": "", "id": ""}}
+            return llm.LlmResult(backend, "fake-model", {"part": part, "values": rows}, None, run_dir, "fake 1", 0.01)
         rows = []
         if "⟧ AX-20 |" in prompt:                                    # the comparison table
             column = 2 if part_model == "AX-20" else 1
@@ -143,6 +150,18 @@ class Client:
                 return batch
             time.sleep(0.2)
         raise AssertionError(f"batch {batch_id} did not finish: {batch}")
+
+
+def until(check, timeout: float = 60):
+    """Poll `check()` until it returns something truthy. WHY: a re-extraction keeps the stage at `extracted` while it
+    runs, so the queue's stages cannot say when it is done; the new values.json can."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        found = check()
+        if found:
+            return found
+        time.sleep(0.2)
+    raise AssertionError("timed out")
 
 
 def fake_capture(html_by_url: dict[str, str]):
@@ -312,7 +331,9 @@ def test_the_queue_review_prompt_and_publish(tmp_path, fake_model, isolated_cach
         # re-extraction keeps the old values.json aside, intact
         old = (home / "sources" / pdf_id / "values.json").read_bytes()
         status, queued = client.post(f"/api/sources/{pdf_id}/extract", {})
-        assert status == 202 and queued == {"queued": pdf_id, "model": "claude"}
+        assert status == 202 and queued == {"queued": pdf_id, "model": "claude", "category": "actuator"}
+        until(lambda: (home / "sources" / pdf_id / "values.json").is_file()
+              and list((home / "sources" / pdf_id).glob("values-*.json")))
         client.wait(batch["id"])
         assert [path.read_bytes() for path in (home / "sources" / pdf_id).glob("values-*.json")] == [old]
         assert client.get(f"/api/sources/{pdf_id}")[1]["source"]["history"][-1]["stage"] == "extracted"
@@ -372,6 +393,34 @@ def test_a_restart_resumes_or_fails_honestly(tmp_path, fake_model, isolated_cach
         assert [h["stage"] for h in history] == ["added", "captured", "converted", "extracted"]
         status, detail = client.get(f"/api/sources/{cut}")
         assert detail["source"]["stage"] == "failed" and "restart" in detail["source"]["error"]
+    finally:
+        stop(app, server)
+
+
+@needs_markdownify
+def test_a_source_takes_its_own_category_and_open_mode(tmp_path, fake_model, isolated_cache):
+    home = tmp_path / "home"
+    app, server, client = start(home)
+    try:
+        fields = {row["category"]: row for row in client.get("/api/fields")[1]}
+        assert fields["actuator"]["mode"] == "fields" and fields["psu"]["mode"] == "open"
+        assert "open mode" in fields["psu"]["note"]
+        _, batch = client.post_batch(files=[("ax.html", HTML.encode()), ("ax.pdf", PDF)])
+        html_id, pdf_id = (s["id"] for s in client.wait(batch["id"])["sources"])
+        assert client.post(f"/api/sources/{html_id}/extract", {"category": "typo"})[0] == 400
+        status, queued = client.post(f"/api/sources/{html_id}/extract", {"category": "psu"})
+        assert status == 202 and queued["category"] == "psu"
+        detail = until(lambda: (d := client.get(f"/api/sources/{html_id}")[1])["values"]
+                       and d["values"]["extractor"].get("mode") == "open" and d)
+        assert detail["source"]["category"] == "psu"
+        assert detail["values"]["extractor"]["mode"] == "open" and detail["values"]["extractor"]["category"] == "psu"
+        rows = {row["key"]: row for row in detail["values"]["values"]}
+        assert rows["spec.weight"]["verdict"] == "kept" and rows["spec.weight"]["label"] == "Weight"
+        assert rows["spec.efficiency"]["verdict"] == "dropped"             # 89% is not in the cited block
+        assert "open mode" in client.get(f"/api/sources/{html_id}/prompt")[1]
+        other = client.get(f"/api/sources/{pdf_id}")[1]                     # the batch's category still holds
+        assert "category" not in other["source"] and other["values"]["extractor"]["mode"] == "fields"
+        assert read_json(home / "batches" / batch["id"] / "batch.json")["category"] == "actuator"
     finally:
         stop(app, server)
 

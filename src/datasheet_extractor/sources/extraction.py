@@ -1,5 +1,6 @@
-"""The queue's extract step: Option 1 over a source's Markdownify bundle, the batch's category fields, and every
-product of the batch (CONTRACT §3).
+"""The queue's extract step: Option 1 over a source's Markdownify bundle, the source's category fields (its own
+category, else its batch's; a category with no field list runs open mode, open_mode.py), and every product of the
+batch (CONTRACT §3).
 
 A product is a part model when one of its names (products.model_candidates) is printed in a cell of one of the
 bundle's tables — the header of a column or row per model. Then Option 1 runs once per such model with it as
@@ -22,12 +23,14 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 import time
 
 from .. import fields as fields_module
 from .. import llm, option1
 from ..values import document
+from . import open_mode
 from . import products as products_module
 from .store import Store, default_home, now, read_json, write_json
 
@@ -35,12 +38,29 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 FIELDS_DIR = ROOT / "fields"
 
 
+# Categories with no field list yet, extracted in open mode (open_mode.py). WHY a list and not any word: the batch
+# form offers these by name, and a typo must not silently become an open-mode category.
+OPEN_CATEGORIES = ("psu",)
+
+
 def fields_path(category: str) -> pathlib.Path:
     return FIELDS_DIR / f"{category}.json"
 
 
 def categories() -> list[str]:
-    return sorted(path.stem for path in FIELDS_DIR.glob("*.json"))
+    """Every category a batch or source may name: the field lists, then the open-mode ones without one."""
+    with_fields = sorted(path.stem for path in FIELDS_DIR.glob("*.json"))
+    return with_fields + [category for category in OPEN_CATEGORIES if category not in with_fields]
+
+
+def is_open(category: str) -> bool:
+    """No fields/<category>.json: the model proposes every specification the source states."""
+    return not fields_path(category).is_file()
+
+
+def category_of(source: dict, batch: dict) -> str | None:
+    """A source's own category (CONTRACT §2), else its batch's."""
+    return source.get("category") or batch.get("category")
 
 
 def bundle_source(bundle_dir: pathlib.Path) -> pathlib.Path:
@@ -81,15 +101,59 @@ def table_texts(bundle: option1.Bundle) -> list[str]:
     return list(dict.fromkeys(texts))
 
 
+_TOKEN = re.compile(r"[A-Za-z0-9.]+(?:[-/][A-Za-z0-9.]+)*")
+
+
+def _segments(text: str) -> list[str]:
+    return [segment.lower() for segment in text.split("-") if segment]
+
+
+def _spellings(token: str) -> list[list[str]]:
+    """A cell's designation with its last segment's alternatives spelled out: '60ASM200-1024C/2500C' is
+    60ASM200-1024C and 60ASM200-2500C."""
+    head, _, last = token.rpartition("-")
+    if not head:
+        return [_segments(token)]
+    return [_segments(head) + [option.lower()] for option in last.split("/") if option]
+
+
+def _subsequence(short: list[str], long: list[str]) -> bool:
+    it = iter(long)
+    return all(any(segment == other for other in it) for segment in short)
+
+
+def segment_named(candidate: str, texts: list[str]) -> str | None:
+    """The one designation in `texts` that is `candidate` with option segments left out — the same first and last
+    segment, the rest an ordered subset ('60ASM200-1024C/2500C' for '60ASM200-5-1024C') — or None when none is, or
+    when two different ones are.
+    WHY: a selection list prints the series code and leaves out options the product's full code carries (JMC's '-5'
+    is the pole pairs). Sharing the last segment is what keeps AK80-9 from being read as AK80-64."""
+    model = _segments(candidate)
+    if len(model) < 2 or not re.search(r"\d", model[0]):
+        return None
+    found = set()
+    for text in texts:
+        for token in _TOKEN.findall(text):
+            for spelling in _spellings(token):
+                if (2 <= len(spelling) < len(model) and spelling[0] == model[0] and spelling[-1] == model[-1]
+                        and _subsequence(spelling, model)):
+                    found.add(token)
+    return found.pop() if len(found) == 1 else None
+
+
 def part_models(bundle: option1.Bundle, products: list[dict]) -> list[tuple[str | None, list[str]]]:
-    """[(part model, [product ids that are it])], in product order; [(None, [])] when no product names a table."""
+    """[(part model, [product ids that are it])], in product order; [(None, [])] when no product names a table.
+    A name printed as it is wins; else a designation that is the product's code with option segments left out, and
+    then the part model is that designation as the table prints it (what the checker reads in the header)."""
     headers = table_texts(bundle)
     found: dict[str, list[str]] = {}
     for product in products:
-        for candidate in products_module.model_candidates(product):
-            if option1.model_named(candidate, headers):
-                found.setdefault(candidate, []).append(product["id"])
-                break
+        candidates = products_module.model_candidates(product)
+        named = next((candidate for candidate in candidates if option1.model_named(candidate, headers)), None)
+        if named is None:
+            named = next((match for candidate in candidates if (match := segment_named(candidate, headers))), None)
+        if named is not None:
+            found.setdefault(named, []).append(product["id"])
     return list(found.items()) or [(None, [])]
 
 
@@ -102,7 +166,8 @@ def extract(bundle_dir: pathlib.Path, category: str, products: list[dict], sourc
     """(values.json document, run summary). Model calls are logged under `out/llm/<time>/<n>/`. Raises RuntimeError
     when a model call returns nothing."""
     start = time.time()
-    fields = fields_module.load(fields_path(category))
+    open_ = is_open(category)
+    fields = None if open_ else fields_module.load(fields_path(category))
     bundle = option1.Bundle.load(bundle_dir)
     models = part_models(bundle, products)
     merged: list[list] = []                          # [verdict, [part models]]
@@ -110,15 +175,22 @@ def extract(bundle_dir: pathlib.Path, category: str, products: list[dict], sourc
     part, model_name, calls = None, None, []
     stamp = time.strftime("%Y%m%d-%H%M%S")
     for number, (part_model, product_ids) in enumerate(models, 1):
-        prompt = option1.build_prompt(bundle, fields, part_model)
-        result = llm.extract(backend, option1.SYSTEM_PROMPT, prompt, option1.output_schema(fields),
-                             out / "llm" / stamp / str(number), llm_model)
+        if open_:
+            system, prompt, schema = (open_mode.SYSTEM_PROMPT, open_mode.build_prompt(bundle, part_model),
+                                      open_mode.output_schema())
+        else:
+            system, prompt, schema = (option1.SYSTEM_PROMPT, option1.build_prompt(bundle, fields, part_model),
+                                      option1.output_schema(fields))
+        result = llm.extract(backend, system, prompt, schema, out / "llm" / stamp / str(number), llm_model)
         calls.append({"part_model": part_model, "products": product_ids, "seconds": result.seconds,
                       "model": result.model, "error": result.error, "run_dir": str(result.run_dir)})
         if result.output is None:
             raise RuntimeError(f"the {backend} call for part model {part_model!r} returned no values: {result.error}")
         model_name = model_name or (f"{result.model} via {result.cli_version}" if result.model else None)
-        verdicts, run_part = option1.judge(result.output, fields, bundle, part_model)
+        if open_:
+            verdicts, run_part = open_mode.judge(result.output, bundle, part_model)
+        else:
+            verdicts, run_part = option1.judge(result.output, fields, bundle, part_model)
         for verdict in verdicts:
             key = _merge_key(verdict)
             if key in seen:
@@ -131,12 +203,17 @@ def extract(bundle_dir: pathlib.Path, category: str, products: list[dict], sourc
         if part is None or kept_part > sum(1 for entry in part.values() if entry and entry["verdict"] == "kept"):
             part = run_part
     values = document(source_record(source, bundle_dir), "option1", model_name, part or {}, [v for v, _ in merged])
-    for row, (_, models_of_row) in zip(values["values"], merged):
+    for row, (verdict, models_of_row) in zip(values["values"], merged):
+        if open_:
+            row["label"] = (verdict.proposed or {}).get("label")
         if models_of_row:
             row["part_models"] = models_of_row
     values["extractor"]["part_models"] = [{"model": m, "products": ids} for m, ids in models if m]
+    values["extractor"]["category"] = category
+    values["extractor"]["mode"] = "open" if open_ else "fields"
     kept = sum(1 for verdict, _ in merged if verdict.kept)
-    run = {"category": category, "fields": str(fields_path(category)), "backend": backend, "calls": calls,
+    run = {"category": category, "fields": None if open_ else str(fields_path(category)), "backend": backend,
+           "calls": calls,
            "proposed": len(merged), "kept": kept, "dropped": len(merged) - kept,
            "seconds": round(time.time() - start, 2), "at": now()}
     return values, run
@@ -155,7 +232,7 @@ def run_for(store: Store, catalog: products_module.Catalog, source_id: str, back
     batch = store.batch(source["batch"]) or {}
     products = [catalog.get(product_id) or {"id": product_id, "title": product_id}
                 for product_id in batch.get("products") or []]
-    values, run = extract(pathlib.Path(source["bundle"]), batch.get("category"), products, source, directory,
+    values, run = extract(pathlib.Path(source["bundle"]), category_of(source, batch), products, source, directory,
                           backend, llm_model)
     write_json(directory / "run.json", run)
     write_json(directory / "values.json", values)
