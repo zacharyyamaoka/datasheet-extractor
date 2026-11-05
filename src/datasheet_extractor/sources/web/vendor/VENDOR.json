@@ -1,0 +1,25 @@
+{
+  "_why": "The Sources app is a framework-free page with no build step and no network, so the browser modules it needs are pinned copies here, taken from Markdownify's own pinned copies (/home/bam/markdownify src/mdify/viewer/vendor/, git 7f307e13a160de89352d8c7bb5e50c3f487d67ae). tests/sources_journey.py re-hashes every file against this record. To update one: copy the new file, then change its version, origin and sha256 here together.",
+  "files": {
+    "source-highlighter.js": {
+      "project": "source-highlighter",
+      "origin": "/home/bam/source-highlighter js/source-highlighter.js",
+      "git_sha": "a3d6e0c68984b558a609856fecf5746aab6e2db1",
+      "sha256": "6ecf97bebb46ec8d53723bdfee1f2cf2a974bc1ef6a974b1bcbce66924798d43"
+    },
+    "pdfjs/pdf.min.mjs": {
+      "project": "pdfjs-dist",
+      "version": "6.4.299",
+      "origin": "https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-6.4.299.tgz build/pdf.min.mjs",
+      "license": "Apache-2.0 (pdfjs/LICENSE)",
+      "sha256": "57456c8e0c81e46be31174b499ef77f2b9f5ee46d04412ba627320a36755d4c2"
+    },
+    "pdfjs/pdf.worker.min.mjs": {
+      "project": "pdfjs-dist",
+      "version": "6.4.299",
+      "origin": "https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-6.4.299.tgz build/pdf.worker.min.mjs",
+      "license": "Apache-2.0 (pdfjs/LICENSE)",
+      "sha256": "9536359f1b8367850d485731ca1d5e45c159a7b7a0912325e539937aa21ceb18"
+    }
+  }
+}

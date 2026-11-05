@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datasheet Sources</title>
+<link rel="stylesheet" href="app.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <span class="wm" aria-label="datasheet extractor"><b>datasheet</b><b>extractor</b></span>
+    <nav class="nav">
+      <a href="#/add" data-nav="add" data-testid="nav-add">Add sources</a>
+      <a href="#/queue" data-nav="queue" data-testid="nav-queue">Queue <span class="badge" data-testid="queue-badge" hidden></span></a>
+    </nav>
+  </header>
+  <div class="tabs" role="tablist" aria-label="Sources in this batch" data-testid="tabs" hidden></div>
+  <main id="screen"></main>
+</div>
+</body>
+</html>
