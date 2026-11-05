@@ -495,3 +495,31 @@ def test_running_names_the_step_a_job_is_in_and_a_restart_clears_a_stale_one(tmp
         assert "restart" in cut["error"]
     finally:
         stop(app, server)
+
+
+def test_the_review_author_defaults_to_git_user_name_then_the_os_user(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    answers = {"out": "Zach Yamaoka\n", "code": 0}
+
+    def fake_run(command, **kwargs):
+        assert command[:2] == ["git", "config"]
+        return subprocess.CompletedProcess(command, answers["code"], answers["out"], "")
+
+    monkeypatch.setattr(server_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(server_module.getpass, "getuser", lambda: "bam")
+    server_module.git_user_name.cache_clear()
+    assert server_module.author_of(home) == "Zach Yamaoka"
+    answers.update(out="", code=1)                                   # no user.name configured
+    server_module.git_user_name.cache_clear()
+    assert server_module.author_of(home) == "bam"
+
+    def no_git(command, **kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(server_module.subprocess, "run", no_git)
+    server_module.git_user_name.cache_clear()
+    assert server_module.author_of(home) == "bam"
+    write_json(home / "config.json", {"author": "Reviewer R"})       # config.json still overrides
+    assert server_module.author_of(home) == "Reviewer R"
+    server_module.git_user_name.cache_clear()

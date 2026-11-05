@@ -52,7 +52,7 @@ the dead process and appends `failed` to the history for that step (a source it 
 | `POST /api/batches` (multipart: `files[]`, `urls` newline text, `products` JSON list, `category`, `capture_keep`) | creates the batch, queues every source, returns it |
 | `GET /api/sources/<id>` | `{source, values, review, effective}` — `effective` = values ⊕ review (§5) |
 | `GET /api/sources/<id>/file/<name>` | a bundle file (`source.<ext>`, `index.json`, `document.md`, `snapshot.jpg`) |
-| `POST /api/sources/<id>/review` `{op…}` | appends one §7.1 op; the server stamps `author` (config, default the OS user) and `at`; returns review.json |
+| `POST /api/sources/<id>/review` `{op…}` | appends one §7.1 op; the server stamps `author` (`<home>/config.json`'s `author`, else `git config user.name`, else the OS user) and `at`; returns review.json |
 | `POST /api/sources/<id>/extract` `{model?, category?}` | (re)runs extraction as a background job; `category` is saved to source.json first (a category with no `fields/<category>.json` runs open mode: every specification the source states, keyed `spec.<printed label>`) |
 | `GET /api/sources/<id>/prompt` (text) | a prompt any AI agent can run: the command line for this machine, then the source path/URL, the fields, and where to write values.json |
 | `POST /api/sources/<id>/publish` | writes `published/<product>/<source>.json` for every assigned product; stage → published |

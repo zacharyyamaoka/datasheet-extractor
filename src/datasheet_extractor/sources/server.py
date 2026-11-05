@@ -22,12 +22,14 @@ from __future__ import annotations
 import argparse
 import email.parser
 import email.policy
+import functools
 import getpass
 import hashlib
 import json
 import mimetypes
 import pathlib
 import re
+import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
@@ -62,10 +64,23 @@ def _inside(root: pathlib.Path, relative: str) -> pathlib.Path | None:
     return path
 
 
+@functools.lru_cache(maxsize=1)
+def git_user_name() -> str | None:
+    """`git config user.name`, or None when git or the setting is missing."""
+    try:
+        run = subprocess.run(["git", "config", "--get", "user.name"], capture_output=True, text=True, check=False,
+                             timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return (run.stdout.strip() or None) if run.returncode == 0 else None
+
+
 def author_of(home: pathlib.Path) -> str:
-    """Who a review op is stamped with: `author` in <home>/config.json, else the OS user."""
+    """Who a review op is stamped with: `author` in <home>/config.json, else `git config user.name`, else the OS
+    user. WHY git's name first: the OS user is a login ('bam' shows as "BA"); the person's name gives the provenance
+    column real initials ("Zach Yamaoka" → ZY)."""
     config = read_json(pathlib.Path(home) / "config.json", {}) or {}
-    return config.get("author") or getpass.getuser()
+    return config.get("author") or git_user_name() or getpass.getuser()
 
 
 def parse_multipart(content_type: str, body: bytes) -> tuple[dict[str, list[str]], list[tuple[str, bytes]]]:
