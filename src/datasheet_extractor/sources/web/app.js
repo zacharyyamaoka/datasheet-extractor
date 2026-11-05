@@ -108,7 +108,7 @@ function render() {
     screen.appendChild(holder);
     review = reviewTab(holder, { sourceId: chosen, batch, onChanged: refresh });
   } else {
-    queue = queueScreen(screen, { onOpen: (batch, source) => go(`#/batch/${batch}/${source}`) });
+    queue = queueScreen(screen, { onOpen: (batch, source) => go(`#/batch/${batch}/${source}`), onChanged: refresh });
     queue.draw(batches, freshBatch);
   }
 }

@@ -51,6 +51,7 @@ KNOWN_URLS = {
     "https://www.cubemars.com/product/ak80-9-v3-0-robotic-actuator.html": CUBEMARS_SHA,
 }
 STAGES = ["added", "captured", "converted", "extracted", "published"]
+CAPTURE_LEVELS = ("link", "html", "snapshot", "pdf", "archive")  # Markdownify CONTRACT §2.1, the order capture_keep keeps
 OPS = {"edit", "reject", "restore", "add", "assign", "unassign"}
 MEDIA_EXT = {"application/pdf": "pdf", "text/html": "html", "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
@@ -135,6 +136,16 @@ class Home:
         self.counter = 0
         for name in ("batches", "sources", "published"):
             (root / name).mkdir(parents=True, exist_ok=True)
+
+    # ---- categories (the real server's GET /api/fields shape) -------------------------------------------------------
+    def fields(self) -> list[dict]:
+        out = []
+        for path in sorted((REPO / "fields").glob("*.json")):
+            rows = json.loads(path.read_text(encoding="utf-8"))
+            out.append({"category": path.stem, "mode": "fields", "fields": len(rows), "keys": [row["key"] for row in rows]})
+        out.append({"category": "psu", "mode": "open", "fields": 0, "keys": [],
+                    "note": "open mode: every specification the source states, keyed spec.<printed label>"})
+        return out
 
     # ---- products ------------------------------------------------------------------------------------------------
     def products(self) -> list[dict]:
@@ -357,6 +368,15 @@ class Home:
         return {"published": written}
 
 
+def parse_keep(text: str) -> str:
+    """As the real store.parse_keep: Markdownify's levels in its order, html required (values cite its bytes)."""
+    chosen = [name.strip() for name in text.split(",") if name.strip()]
+    unknown = [name for name in chosen if name not in CAPTURE_LEVELS]
+    if unknown or "html" not in chosen:
+        raise ValueError(f"capture_keep {text!r}: levels are {', '.join(CAPTURE_LEVELS)}, and html is required")
+    return ",".join(name for name in CAPTURE_LEVELS if name in chosen)
+
+
 def multipart(handler) -> dict:
     """Parse a multipart/form-data body with the stdlib email parser (cgi is gone from 3.13)."""
     length = int(handler.headers.get("Content-Length") or 0)
@@ -398,7 +418,7 @@ def make_handler(home: Home):
         def do_GET(self):
             path = urllib.parse.urlparse(self.path).path
             if path == "/api/fields":
-                return self.send(200, sorted(p.stem for p in (REPO / "fields").glob("*.json")))
+                return self.send(200, home.fields())
             if path == "/api/products":
                 return self.send(200, home.products())
             if path == "/api/batches":
@@ -446,14 +466,27 @@ def make_handler(home: Home):
                     urls = [line.strip() for line in "".join(form.get("urls", [""])).splitlines() if line.strip()]
                     if not files and not urls:
                         return self.send(400, {"error": "add a file or a URL"})
+                    category = form.get("category", [""])[0]
+                    if category not in {entry["category"] for entry in home.fields()}:
+                        return self.send(400, {"error": f"unknown category {category!r}"})
                     return self.send(200, home.create_batch(files, urls, json.loads(form.get("products", ["[]"])[0]),
-                                                            form.get("category", ["actuator"])[0], form.get("capture_keep", ["html"])[0]))
+                                                            category, parse_keep(form.get("capture_keep", ["html"])[0])))
                 match = re.fullmatch(r"/api/sources/([^/]+)/(review|extract|publish)", path)
                 if match and home.source(match.group(1)):
                     source_id, action = match.groups()
                     if action == "review":
                         return self.send(200, home.append_op(source_id, self.json_body()))
                     if action == "extract":
+                        category = self.json_body().get("category")
+                        if category is not None:
+                            if category not in {entry["category"] for entry in home.fields()}:
+                                return self.send(400, {"error": f"unknown category {category!r}"})
+                            with home.lock:
+                                record = home.source(source_id)
+                                record["category"] = category
+                                home.save_source(record)
+                        if not home.source(source_id).get("bundle"):
+                            return self.send(200, {"queued": None, "category": category, "note": "category saved; extracts after conversion"})
                         home.advance(source_id, "converted")
                         threading.Thread(target=lambda: (time.sleep(home.step), home.extract(source_id)), daemon=True).start()
                         return self.send(200, {"started": True})

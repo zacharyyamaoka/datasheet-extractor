@@ -24,6 +24,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shutil
 import signal
 import subprocess
@@ -244,7 +245,22 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     page.wait_for_selector("[data-testid=category] option", state="attached")
     sizes = {level: page.text_content(f"[data-testid=size-{level}]") for level in LEVEL_SIZES}
     check(sizes == LEVEL_SIZES, "the Add screen shows §2.1's measured size beside each capture level", sizes)
-    check(page.is_checked("input[name=capture_keep][value=html]"), "capture level defaults to html")
+    # capture levels are a set: html always on and locked; snapshot, pdf, archive optional; "link only" explicit
+    locked = page.evaluate("() => { const b = document.querySelector('[data-testid=keep-html]'); return [b.checked, b.disabled]; }")
+    check(locked == [True, True], "html is always kept and locked", locked)
+    check(page.text_content("[data-testid=keep-total]") == "≈ 192 KB", "the running total starts at html's measured size", page.text_content("[data-testid=keep-total]"))
+    page.check("[data-testid=keep-snapshot]")
+    total = (page.text_content("[data-testid=keep-total]"), page.text_content("[data-testid=keep-list]"))
+    check(total == ("≈ 1.6 MB", "html + snapshot"), "ticking snapshot adds its size to the total", total)
+    page.check("[data-testid=keep-link-only]")
+    link_only = page.evaluate("""() => [document.querySelector('[data-testid=keep-html]').checked, document.querySelector('[data-testid=keep-snapshot]').disabled,
+        document.querySelector('[data-testid=keep-total]').textContent]""")
+    check(link_only == [False, True, "≈ 1 KB"], "'link only' unticks html and keeps no copy", link_only)
+    page.uncheck("[data-testid=keep-link-only]")
+    page.check("[data-testid=keep-snapshot]")
+    options = page.evaluate("() => [...document.querySelectorAll('[data-testid=category] option')].map((o) => o.textContent)")
+    check("psu — every spec the sheet prints" in options and any(option.startswith("actuator — ") for option in options),
+          "categories are labelled by what they extract (psu: open mode)", options)
     missing = controls_without_handlers(page, cdp, "add")
     check(not missing, "Add: every control has its own handler", missing)
     page.set_input_files("[data-testid=file-input]", uploads)
@@ -260,7 +276,12 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     page.select_option("[data-testid=category]", "actuator")
     count = len(uploads) + len(links)
     check(page.text_content("[data-testid=submit]") == f"Add {count} sources to the queue", "submit counts the files and links", page.text_content("[data-testid=submit]"))
+    # WHY read it in the page: Playwright does not expose a multipart body that carries file blobs.
+    page.evaluate("""() => { const send = window.fetch; window.__sentKeep = [];
+        window.fetch = (url, init) => { if (init?.body instanceof FormData) window.__sentKeep.push(init.body.get('capture_keep')); return send(url, init); }; }""")
     page.click("[data-testid=submit]")
+    sent_keep = page.evaluate("() => window.__sentKeep")
+    check(sent_keep == ["html,snapshot"], "capture_keep is sent as the comma list", sent_keep)
 
     # 2. Queue: stages advance live -------------------------------------------------------------------------------
     page.wait_for_selector("[data-testid=queue] [data-testid=batch]")
@@ -281,6 +302,17 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     check(not controls_without_handlers(page, cdp, "queue"), "Queue: every control has its own handler")
     pdf_id = page.evaluate(stage_of, "LRS-350-SPEC.pdf")[1]
     check(pdf_id == PDF_SHA[:12], "the source id is the first 12 hex of its sha256 once captured (§2)", pdf_id)
+    # the queue row's category picker: POST /api/sources/<id>/extract {category}, saved to source.json (CONTRACT §2, §4).
+    # Stub: on the failed link (saved for after conversion). Real: the PDF as psu (open mode), a real re-extraction.
+    if kind == "stub":
+        page.wait_for_selector("[data-testid=queue-source][data-stage=failed] [data-category]")
+    picked_name = "LRS-350-SPEC.pdf" if kind == "real" else page.evaluate("""() => [...document.querySelectorAll('[data-testid=queue-source]')]
+        .find((n) => n.dataset.stage === 'failed').querySelector('.name').textContent""")
+    picked_id = page.evaluate(stage_of, picked_name)[1]
+    with page.expect_response(lambda response: response.url.endswith(f"/api/sources/{picked_id}/extract")) as answered:
+        page.select_option(f'[data-category="{picked_id}"]', "psu")
+    on_disk = json.loads((disk.home / "sources" / picked_id / "source.json").read_text(encoding="utf-8")).get("category")
+    check(answered.value.ok and on_disk == "psu", "the queue's category picker sets the source's category", (answered.value.status, on_disk))
     review_stage, source_id = page.evaluate(stage_of, review_name)
     check(review_stage == "extracted", f"{review_name} is extracted", review_stage)
     product_id = created.get(titles[-1])
@@ -320,6 +352,10 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     else:
         check(bool(models), "the mapping step lists the models this datasheet covers", models)
     check(len(kept) >= 3, "the extraction kept at least 3 values to review", len(kept))
+    shown_labels = page.evaluate("() => [...document.querySelectorAll('tr.r td.f')].map((n) => n.textContent)")
+    bare = [label for label, value in zip(shown_labels, kept) if label == value["key"]]
+    RESULTS["rows_showing_their_key"] = len(bare)
+    check(not bare, "every row shows its field's label, never the bare key", bare[:4])
 
     def pick(key: str, fallback: int) -> dict:
         """The LRS-350 fixture's row by key; a real extraction's by position."""
@@ -464,9 +500,29 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
 
     # 4. A human row cited by a box drawn on the PDF (its own tab in the batch when it is another source) -------------
     if pdf_id != source_id:
+        # the PDF is re-extracting as psu (open mode) since the queue's picker; wait for its values
+        # WHY count history: a re-extraction leaves the stage at `extracted` while it runs (values.json is archived
+        # first); it is done when a second `extracted` (or a `failed`) is appended.
+        def finished() -> bool:
+            record = json.loads((disk.home / "sources" / pdf_id / "source.json").read_text(encoding="utf-8"))
+            stages = [step["stage"] for step in record.get("history", [])]
+            return stages.count("extracted") >= 2 or stages[-1:] == ["failed"]
+        deadline = time.monotonic() + 900
+        while time.monotonic() < deadline and not finished():
+            time.sleep(1)
+        record = json.loads((disk.home / "sources" / pdf_id / "source.json").read_text(encoding="utf-8"))
+        RESULTS["pdf_after_psu"] = {key: record.get(key) for key in ("stage", "category", "error")} | {"history": [step["stage"] for step in record.get("history", [])]}
+        check(record["stage"] == "extracted", "the PDF re-extracts as psu (open mode)", RESULTS["pdf_after_psu"])
         page.click(f'[data-testid=tabs] [data-tab="{pdf_id}"]')
         page.wait_for_function("(id) => location.hash.endsWith(id)", arg=pdf_id)
         wait_ready(page)
+        check(page.input_value("[data-testid=source-category]") == "psu", "the tab's category picker shows the source's own category", page.input_value("[data-testid=source-category]"))
+        open_rows = (json.loads(page.evaluate(f"async () => JSON.stringify(await (await fetch('/api/sources/{pdf_id}')).json())"))["effective"] or {}).get("values") or []
+        open_rows = [value for value in open_rows if value.get("verdict") == "kept"]
+        labels = page.evaluate("() => [...document.querySelectorAll('tr.r td.f')].map((n) => n.textContent)")
+        RESULTS["open_mode"] = {"kept": len(open_rows), "labels": labels[:6]}
+        check(bool(open_rows) and all(not label.startswith("spec.") for label in labels),
+              "open mode (psu) rows show the label printed in the source", labels[:4])
     ops_before = len(disk.ops(pdf_id))
     page.click("[data-testid=add-row]")
     page.fill("[data-testid=add-field]", "Mass")
@@ -499,6 +555,14 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     human_id = added.get("row", {}).get("id")
     error = spot_error({"id": human_id, "grounding": grounding})
     check(error <= TOLERANCE, "clicking the human row spotlights its drawn box within 1 px", f"{error:.3f} px")
+
+    # the tab header's category picker (stub: the canned extraction runs again; real: a model call, so not here)
+    if kind == "stub":
+        with page.expect_response(lambda response: response.url.endswith(f"/api/sources/{pdf_id}/extract")) as answered:
+            page.select_option("[data-testid=source-category]", "psu")
+        page.wait_for_function("() => document.querySelector('[data-testid=source-stage]').textContent === 'extracted'", timeout=15000)
+        on_disk = json.loads((disk.home / "sources" / pdf_id / "source.json").read_text(encoding="utf-8")).get("category")
+        check(answered.value.ok and on_disk == "psu", "the tab's category picker sets the category and extracts again", (answered.value.status, on_disk))
 
     # 5. Drag test: every boundary, before / after / after a reload -----------------------------------------------
     def drag(handle: str, dx: float, dy: float) -> None:

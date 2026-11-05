@@ -27,13 +27,46 @@ export const api = {
   source: (id) => call("GET", `/api/sources/${encodeURIComponent(id)}`),
   file: (id, name) => `/api/sources/${encodeURIComponent(id)}/file/${encodeURIComponent(name)}`,
   review: (id, op) => call("POST", `/api/sources/${encodeURIComponent(id)}/review`, op),
-  extract: (id) => call("POST", `/api/sources/${encodeURIComponent(id)}/extract`, {}),
+  extract: (id, body = {}) => call("POST", `/api/sources/${encodeURIComponent(id)}/extract`, body),
   prompt: (id) => call("GET", `/api/sources/${encodeURIComponent(id)}/prompt`),
   publish: (id) => call("POST", `/api/sources/${encodeURIComponent(id)}/publish`, {}),
 };
 
 /** A category from GET /api/fields: the contract says "categories available", so take a name or an object's id. */
 export const categoryName = (entry) => (typeof entry === "string" ? entry : entry?.id || entry?.name || entry?.category || "");
+
+/** What a category extracts, said plainly: open mode reads every specification; a field list reads its fields. */
+export function categoryLabel(entry) {
+  const name = categoryName(entry);
+  if (entry?.mode === "open") return `${name} — every spec the sheet prints`;
+  return entry?.fields ? `${name} — ${entry.fields} fields` : name;
+}
+
+let categoriesCache = null;
+/** GET /api/fields once per page. */
+export async function categories() {
+  if (!categoriesCache) categoriesCache = await api.fields();
+  return categoriesCache;
+}
+
+/** <option>s for a category <select>, `chosen` selected. */
+export const categoryOptions = (list, chosen) => list.map((entry) => `<option value="${esc(categoryName(entry))}"${categoryName(entry) === chosen ? " selected" : ""}>${esc(categoryLabel(entry))}</option>`).join("");
+
+/**
+ * A field's label, never its bare key: the label the row carries (a hand-written values.json), the label printed in
+ * the source (open mode keeps it in the model's proposal), or the category's field label when GET /api/fields gives
+ * one (`labels: {key: label}`). Only when none exists is the key shown.
+ */
+export function fieldLabel(row, original, list) {
+  if (row?.label) return row.label;
+  if (original?.label) return original.label;
+  if (original?.proposed?.label) return original.proposed.label;
+  for (const entry of list || []) {
+    const label = entry?.labels?.[row?.key];
+    if (label) return label;
+  }
+  return row?.key ?? "";
+}
 
 // ---- DOM ------------------------------------------------------------------------------------------------------------
 

@@ -1,19 +1,23 @@
 // Add Sources: one calm box. Drop any number of files, paste any number of URLs, optionally pick products, a category
 // and how much of each web page to keep, then POST /api/batches (CONTRACT §4). The batch goes onto the queue.
 
-import { api, categoryName, esc, h, $, $$, toast } from "./util.js";
+import { api, categories, categoryOptions, esc, h, $, $$, toast } from "./util.js";
 import { productSearch, productTitle } from "./products.js";
 
 // Markdownify CONTRACT §2.1, measured on the CubeMars AK80-9 page (2026-10-29). WHY sizes beside each level (Zach,
 // 2026-10-29): "provide all the options and then provide the estimate of the storage size, so then the user can pick."
+// WHY a set, not a ladder: each level keeps a different thing, so they add up; html is always kept because values
+// cite its bytes, and "link only" (no copy at all) is its own explicit choice. `bytes` is the measured size, for the
+// running total; the archive's is its first page.
 const CAPTURE_LEVELS = [
-  { level: "link", size: "~1 KB", gives: "where and when — no copy of the page" },
-  { level: "html", size: "192 KB (39 KB gzipped)", gives: "the bytes Markdownify reads and values cite" },
-  { level: "snapshot", size: "1.4 MB", gives: "what the page looked like; highlight as page + box" },
-  { level: "pdf", size: "5.2 MB", gives: "a printable copy with a text layer" },
-  { level: "archive", size: "4.9 MB first page, 2.1–2.7 MB each further page", gives: "the page replayed offline, exactly as delivered" },
+  { level: "link", size: "~1 KB", bytes: 1e3, gives: "link only, no copy — where and when" },
+  { level: "html", size: "192 KB (39 KB gzipped)", bytes: 192e3, gives: "values cite these bytes" },
+  { level: "snapshot", size: "1.4 MB", bytes: 1.4e6, gives: "what the page looked like; highlight as page + box" },
+  { level: "pdf", size: "5.2 MB", bytes: 5.2e6, gives: "a printable copy with a text layer" },
+  { level: "archive", size: "4.9 MB first page, 2.1–2.7 MB each further page", bytes: 4.9e6, gives: "the page replayed offline, exactly as delivered" },
 ];
-const DEFAULT_LEVEL = "html";
+const ORDER = CAPTURE_LEVELS.map(({ level }) => level); // Markdownify's order, which capture_keep is sent in
+const megabytes = (bytes) => (bytes < 1e6 ? `${Math.round(bytes / 1e3)} KB` : `${(bytes / 1e6).toFixed(1)} MB`);
 
 const kb = (bytes) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
 const urlLines = (text) => text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -38,8 +42,10 @@ export function addScreen(host, { onAdded }) {
       <label class="field inline"><span>Category</span><select class="in" data-testid="category"></select>
         <span class="n">which fields to extract</span></label>
       <fieldset class="field levels" data-testid="levels"><legend>Keep from each web page <span class="n" data-levelnote></span></legend>
-        ${CAPTURE_LEVELS.map(({ level, size, gives }) => `<label class="level"><input type="radio" name="capture_keep" value="${level}"${level === DEFAULT_LEVEL ? " checked" : ""}>
+        ${CAPTURE_LEVELS.filter(({ level }) => level !== "link").map(({ level, size, gives }) => `<label class="level${level === "html" ? " locked" : ""}"><input type="checkbox" name="capture_keep" value="${level}" data-testid="keep-${level}"${level === "html" ? " checked disabled" : ""}>
           <b>${level}</b><span class="size" data-testid="size-${level}">${esc(size)}</span><span class="gives">${esc(gives)}</span></label>`).join("")}
+        <label class="level linkonly"><input type="checkbox" data-testid="keep-link-only"><b>link only</b><span class="size" data-testid="size-link">${esc(CAPTURE_LEVELS[0].size)}</span><span class="gives">${esc(CAPTURE_LEVELS[0].gives)}</span></label>
+        <p class="total">Kept per page: <b data-testid="keep-total"></b> <span class="n" data-testid="keep-list"></span></p>
         <p class="n">Sizes measured on one product page (CubeMars AK80-9, 29 Oct 2026). Files are kept whole.</p></fieldset>
       <div class="add-go"><button type="button" class="btn pri" data-testid="submit" disabled>Add to queue</button><span class="n" data-summary></span></div>
     </div></section>`;
@@ -86,6 +92,28 @@ export function addScreen(host, { onAdded }) {
     $("[data-levelnote]", host).textContent = links ? `— applies to the ${links} link${links === 1 ? "" : "s"}` : "— applies to links";
   }
 
+  /** The levels to keep, as the comma list POST /api/batches takes (Markdownify CONTRACT §2.1 order). */
+  function kept() {
+    if ($("[data-testid=keep-link-only]", host).checked) return ["link"];
+    return ORDER.filter((level) => $(`[data-testid=keep-${level}]`, host)?.checked);
+  }
+
+  function drawLevels() {
+    const linkOnly = $("[data-testid=keep-link-only]", host).checked;
+    const html = $("[data-testid=keep-html]", host);
+    html.checked = !linkOnly;
+    for (const level of ["snapshot", "pdf", "archive"]) {
+      const box = $(`[data-testid=keep-${level}]`, host);
+      box.disabled = linkOnly;
+      if (linkOnly) box.checked = false;
+    }
+    host.querySelector(".level.locked").classList.toggle("off", linkOnly);
+    const levels = kept();
+    const total = levels.reduce((sum, level) => sum + CAPTURE_LEVELS.find((entry) => entry.level === level).bytes, 0);
+    $("[data-testid=keep-total]", host).textContent = `≈ ${megabytes(total)}`;
+    $("[data-testid=keep-list]", host).textContent = `${levels.join(" + ")}${levels.includes("archive") ? " · first page; each further page adds 2.1–2.7 MB" : ""}`;
+  }
+
   function takeFiles(list) {
     for (const file of list) files.push(file);
     drawFiles();
@@ -113,7 +141,7 @@ export function addScreen(host, { onAdded }) {
     input.value = "";
   });
   urls.addEventListener("input", drawSummary);
-  for (const radio of $$("input[name=capture_keep]", host)) radio.addEventListener("change", drawSummary);
+  for (const box of $$("input[name=capture_keep], [data-testid=keep-link-only]", host)) box.addEventListener("change", drawLevels);
   category.addEventListener("change", drawSummary);
 
   const search = productSearch({
@@ -126,8 +154,8 @@ export function addScreen(host, { onAdded }) {
   });
   $("[data-psearch]", host).appendChild(search);
 
-  api.fields().then((list) => {
-    category.innerHTML = list.map((entry) => `<option value="${esc(categoryName(entry))}">${esc(categoryName(entry))}</option>`).join("");
+  categories().then((list) => {
+    category.innerHTML = categoryOptions(list, null);
   }).catch((error) => toast(`Could not read the categories: ${error.message}`, "error"));
 
   submit.addEventListener("click", async () => {
@@ -136,7 +164,7 @@ export function addScreen(host, { onAdded }) {
     form.append("urls", urlLines(urls.value).join("\n"));
     form.append("products", JSON.stringify(products.map((product) => product.id)));
     form.append("category", category.value);
-    form.append("capture_keep", $("input[name=capture_keep]:checked", host).value);
+    form.append("capture_keep", kept().join(","));
     submit.disabled = true;
     try {
       const batch = await api.createBatch(form);
@@ -153,4 +181,5 @@ export function addScreen(host, { onAdded }) {
   });
 
   drawFiles();
+  drawLevels();
 }

@@ -5,7 +5,8 @@
 // V3's per-product columns as the "By product" view. Edit in place, no Fix button, no modal; untouched = accepted.
 
 import {
-  STAGES, api, $, $$, copyText, day, deepEqual, esc, foldable, formatValue, h, initials, moment, parseTyped, readStored,
+  STAGES, api, $, $$, categories, categoryOptions, copyText, day, deepEqual, esc, fieldLabel, foldable, formatValue, h, initials, moment,
+  parseTyped, readStored,
   splitter, toast, writeStored,
 } from "./util.js";
 import { sourceFileOf, sourcePane } from "./source-pane.js";
@@ -54,6 +55,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
   let poll = 0;
   let destroyed = false;
   let pop = null;
+  let categoryList = []; // GET /api/fields
 
   host.innerHTML = `<div class="rv" data-testid="review"><div class="rv-head"></div><div class="rv-ws">
       <div class="rv-left"></div>
@@ -72,7 +74,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
     const original = Object.fromEntries((data.values?.values || []).map((value) => [value.id, value]));
     const ops = data.review?.ops || [];
     const all = data.effective?.values || [];
-    dropped = all.filter((value) => !value.human && value.verdict === "dropped");
+    dropped = all.filter((value) => !value.human && value.verdict === "dropped").map((value) => ({ ...value, label: fieldLabel(value, original[value.id], categoryList) }));
     rows = all.filter((value) => value.human || value.verdict !== "dropped").map((value) => {
       const ai = value.human ? null : original[value.id] || null;
       const acts = ops.filter((op) => op.op !== "assign" && op.op !== "unassign"
@@ -81,7 +83,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
       const added = value.human ? ops.find((op) => op.op === "add" && op.row?.id === value.id) || null : null;
       // WHY the label from values.json / the add op: `effective` carries the fields an op can change, not the label.
       return {
-        ...value, label: value.label || ai?.label || added?.row?.label || value.key, ai, edited, last: acts.at(-1) || null,
+        ...value, label: added?.row?.label || fieldLabel(value, ai, categoryList), ai, edited, last: acts.at(-1) || null,
         added, products: value.products || [], rejected: Boolean(value.rejected),
       };
     });
@@ -120,6 +122,8 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
       <span class="meta">${source.url ? `<a href="${esc(source.url)}" target="_blank" rel="noreferrer noopener">${esc(new URL(source.url).host)}</a> · ` : ""}${retrieved ? `retrieved ${esc(day(retrieved))} · ` : ""}${sha ? `sha256 <code>${esc(sha.slice(0, 8))}…</code> · ` : ""}<span class="stage${source.stage === "failed" ? " failed" : ""}" data-testid="source-stage">${esc(source.stage)}</span></span>
       <span class="sp"></span>
       ${extracted ? `<div class="seg" role="group" aria-label="View"><button type="button" data-view="rows" aria-pressed="${view === "rows"}">Rows</button><button type="button" data-view="product" aria-pressed="${view === "product"}">By product</button></div>` : ""}
+      <label class="cat" title="What to extract from this source; changing it runs the extraction again"><span class="n">Extract</span>
+        <select class="in" data-testid="source-category">${categoryOptions(categoryList, source.category || batch?.category)}</select></label>
       <button type="button" class="btn ghost" data-testid="copy-prompt" title="A prompt any AI agent can run to extract this source">Copy prompt</button>
       <button type="button" class="btn ghost" data-testid="run-extraction" ${source.bundle ? "" : "disabled title=\"not converted yet\""}>Run extraction</button>
       <button type="button" class="btn pri" data-testid="publish" ${assigned ? "" : "disabled title=\"assign a product first\""}>Publish</button>`;
@@ -130,6 +134,21 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
         draw();
       });
     }
+    // A source's own category (CONTRACT §2, §4): saved to source.json, then the extraction runs again with it.
+    $("[data-testid=source-category]", head).addEventListener("change", async (event) => {
+      const category = event.target.value;
+      try {
+        const result = await api.extract(sourceId, { category });
+        toast(result?.queued ? `Extracting again as ${category}` : `Category set to ${category}; it extracts after conversion`);
+        await load();
+        drawHead();
+        watch();
+        onChanged?.();
+      } catch (error) {
+        toast(`Category not changed: ${error.message}`, "error");
+        drawHead();
+      }
+    });
     $("[data-testid=copy-prompt]", head).addEventListener("click", async () => {
       try {
         await copyText(await api.prompt(sourceId), "Prompt");
@@ -389,7 +408,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
       }
     }
     $("[data-dropped]", right).innerHTML = dropped.length
-      ? `<details class="dropped"><summary>${dropped.length} value${dropped.length === 1 ? "" : "s"} the checker dropped (kept in values.json, not reviewed here)</summary><ul>${dropped.map((value) => `<li><b>${esc(value.label || value.key)}</b>: raw <span class="raw">${esc(value.raw)}</span>${value.cite?.id ? `, <code>${esc(value.cite.id)}</code>` : ""}${value.reasons?.length ? ` — ${esc(value.reasons.join("; "))}` : ""}</li>`).join("")}</ul></details>`
+      ? `<details class="dropped"><summary>${dropped.length} value${dropped.length === 1 ? "" : "s"} the checker dropped (kept in values.json, not reviewed here)</summary><ul>${dropped.map((value) => `<li><b>${esc(value.label)}</b>: raw <span class="raw">${esc(value.raw)}</span>${value.cite?.id ? `, <code>${esc(value.cite.id)}</code>` : ""}${value.reasons?.length ? ` — ${esc(value.reasons.join("; "))}` : ""}</li>`).join("")}</ul></details>`
       : "";
   }
 
@@ -772,7 +791,8 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
   }
 
   const ready = (async () => {
-    await Promise.all([load(), allProducts()]);
+    [categoryList] = await Promise.all([categories().catch(() => []), load(), allProducts()]);
+    derive();
     await drawAll();
     watch();
   })();
