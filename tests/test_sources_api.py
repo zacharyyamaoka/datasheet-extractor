@@ -559,3 +559,38 @@ def test_a_map_op_assigns_a_printed_models_values_and_publishes_them(tmp_path, f
         assert client.post(f"/api/sources/{source_id}/publish")[0] == 400                       # nothing assigned
     finally:
         stop(app, server)
+
+
+def test_a_link_only_capture_stops_at_captured_with_a_note_never_failed(tmp_path):
+    def link_capture(url: str, keep: str, out: pathlib.Path) -> None:      # `mdify capture --keep link`: the record
+        assert keep == "link"
+        write_json(out / "source.json", {"sha256": "c" * 64, "bytes": 1234, "media_type": "text/html",
+                                         "retrievals": [{"url": url, "final_url": url, "http_status": 200,
+                                                         "retrieved_at": "2026-11-05T09:00:00Z",
+                                                         "capture": {"kept": ["link"]}}]})
+
+    home = tmp_path / "home"
+    app, server, client = start(home, link_capture)
+    try:
+        assert client.post_batch(urls=["https://example.com/a"], capture_keep="link,snapshot")[0] == 400
+        status, batch = client.post_batch(urls=["https://example.com/a"], capture_keep="link")
+        assert status == 201, batch
+        until(lambda: app.queue.idle() and client.wait(batch["id"], stages=("captured", "failed"))["sources"][0]
+              ["stage"] == "captured")
+        listed = client.get("/api/batches")[1][0]["sources"][0]
+        assert listed["stage"] == "captured" and listed["note"] == "link only: nothing stored to read"
+        source = client.get(f"/api/sources/{listed['id']}")[1]["source"]
+        assert source["capture_keep"] == "link" and source["running"] is None and source.get("error") is None
+        assert [h["stage"] for h in source["history"]] == ["added", "captured"]
+        status, refused = client.post(f"/api/sources/{listed['id']}/extract", {})
+        assert status == 409 and "link only" in refused["error"]
+    finally:
+        stop(app, server)
+    app, server, client = start(home, link_capture)                       # a restart leaves it where it is
+    try:
+        time.sleep(0.6)
+        assert app.queue.idle()
+        source = client.get(f"/api/sources/{listed['id']}")[1]["source"]
+        assert source["stage"] == "captured" and [h["stage"] for h in source["history"]] == ["added", "captured"]
+    finally:
+        stop(app, server)

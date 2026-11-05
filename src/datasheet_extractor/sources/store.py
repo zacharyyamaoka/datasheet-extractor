@@ -26,6 +26,8 @@ STAGES = ("added", "captured", "converted", "extracted", "published")
 FAILED = "failed"
 CAPTURE_LEVELS = ("link", "html", "snapshot", "pdf", "archive")   # Markdownify CONTRACT §2.1
 DEFAULT_KEEP = "html"
+LINK_ONLY = "link"
+LINK_ONLY_NOTE = "link only: nothing stored to read"
 STEPS = ("capture", "convert", "extract")   # what `running` names while a job is in one
 # Fields written as null, never removed, when set to None: a reader can tell "nothing is running" from "not recorded".
 NULLABLE = ("running",)
@@ -58,13 +60,17 @@ def read_json(path: pathlib.Path, default=None):
 
 
 def parse_keep(text: str | None) -> str:
-    """`capture_keep` as Markdownify's levels, in its order. `html` is required: a value cites the HTML bytes."""
+    """`capture_keep` as Markdownify's levels, in its order. `html` is required (a value cites the HTML bytes), except
+    `link` alone: only the source record is kept, and the source stops at `captured` (nothing stored to read)."""
     chosen = [name.strip() for name in (text or DEFAULT_KEEP).split(",") if name.strip()]
     unknown = [name for name in chosen if name not in CAPTURE_LEVELS]
     if unknown:
         raise ValueError(f"unknown capture level {', '.join(unknown)} (levels: {', '.join(CAPTURE_LEVELS)})")
+    if set(chosen) == {LINK_ONLY}:
+        return LINK_ONLY
     if "html" not in chosen:
-        raise ValueError("capture_keep must include html: values are read from, and cite, the page's HTML bytes")
+        raise ValueError("capture_keep must include html (values are read from, and cite, the page's HTML bytes), "
+                         "or be link alone (the source record only, nothing to extract)")
     return ",".join(name for name in CAPTURE_LEVELS if name in chosen)
 
 

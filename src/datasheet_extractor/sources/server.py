@@ -7,7 +7,7 @@ opens no browser window. WHY: Zach's no-focus-steal rule — a tool never fronts
     GET  /api/products                     [{id, title, provider}]
     POST /api/products {title}             a product created here (id = slug), in <home>/products.json
     GET  /api/batches                      newest first, each with its sources' {id, name, kind, stage, running,
-                                           error}
+                                           error, note}
     POST /api/batches                      multipart: files[], urls, products (JSON list), category, capture_keep
     GET  /api/sources/<id>                 {source, values, review, effective}
     GET  /api/sources/<id>/file/<name>     one file of the source's bundle
@@ -136,7 +136,7 @@ class App:
             for source_id in batch["sources"]:
                 source = self.store.source(source_id) or {"id": source_id}
                 sources.append({name: source.get(name) for name in ("id", "name", "kind", "stage", "running",
-                                                                     "error")})
+                                                                     "error", "note")})
             out.append(dict(batch, sources=sources))
         return out
 
@@ -249,6 +249,8 @@ class App:
         if category is not None:
             source = self.store.update_source(source["id"], category=category)
         effective_category = extraction.category_of(source, self.store.batch(source["batch"]) or {})
+        if jobs.is_link_only(source):
+            raise ApiError(409, f"source {source['id']} is {source.get('note') or 'link only'} (capture_keep link)")
         if not jobs.bundle_complete(pathlib.Path(source["bundle"])):
             with self.queue.lock:
                 pending = source["id"] in self.queue.active

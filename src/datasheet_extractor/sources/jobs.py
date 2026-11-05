@@ -13,7 +13,8 @@ page could not show that anything is happening.
 
 A restart resumes every source left in `added`, `captured` or `converted` from that stage (a half-written bundle is
 discarded first); a re-extraction cut off by the restart, whose values.json was set aside and never replaced, is
-marked `failed` with that reason. A `running` left by the dead process is cleared and its step marked `failed` in the
+marked `failed` with that reason. A URL kept as `link` alone has nothing stored to convert: it stops at `captured`
+with the note "link only: nothing stored to read", is never resumed and never `failed`. A `running` left by the dead process is cleared and its step marked `failed` in the
 history; a source the restart resumes then goes back to the stage it had and runs that step again. The watcher polls every 2 s and moves a `converted` (or `failed`, with a complete
 bundle) source to `extracted` when a values.json appears from outside — the prompt's command, or any agent.
 """
@@ -29,7 +30,7 @@ import traceback
 
 from .. import option1
 from . import extraction
-from .store import FAILED, Store, read_json
+from .store import FAILED, LINK_ONLY, LINK_ONLY_NOTE, Store, read_json
 
 MARKDOWNIFY = option1.MARKDOWNIFY
 WORKERS = 2
@@ -39,6 +40,11 @@ BUNDLE_FILES = ("source.json", "document.md", "index.json")
 
 def bundle_complete(bundle_dir: pathlib.Path) -> bool:
     return all((bundle_dir / name).is_file() for name in BUNDLE_FILES)
+
+
+def is_link_only(source: dict) -> bool:
+    """A URL kept as Markdownify's `link` level alone: source.json only, no bytes to convert or extract."""
+    return source.get("kind") == "url" and source.get("capture_keep") == LINK_ONLY
 
 
 def mdify_capture(url: str, keep: str, out: pathlib.Path) -> None:
@@ -100,6 +106,8 @@ class Queue:
                         "" if (directory / "values.json").is_file() else " before it wrote values.json (the "
                         "previous values are kept beside it as values-<sha>.json)"))
                     continue
+            if source["stage"] == "captured" and is_link_only(source):
+                continue
             if source["stage"] in ("added", "captured", "converted"):
                 self.submit(source["id"])
             elif source["stage"] in ("extracted", "published") and not (directory / "values.json").is_file():
@@ -147,7 +155,7 @@ class Queue:
                 if current is None:
                     return
                 source = self.store.source(current)
-            if self.stopping.is_set():
+            if self.stopping.is_set() or is_link_only(source):
                 return
             if source["stage"] == "captured":
                 self.store.set_running(current, "convert")
@@ -195,7 +203,7 @@ class Queue:
             self.store.advance(source["id"], FAILED, str(error), sha256=sha256)
             return None
         self._rename_active(source["id"], new_id)
-        self.store.advance(new_id, "captured")
+        self.store.advance(new_id, "captured", note=LINK_ONLY_NOTE if is_link_only(source) else None)
         return new_id
 
     def _convert(self, source: dict) -> None:

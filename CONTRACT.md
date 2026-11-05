@@ -22,7 +22,7 @@ Serves on 127.0.0.1, prints the URL, opens no window. State lives in `--home` (d
 batches/<batch id>/batch.json     {id, created_at, label, category, products: [product ids], sources: [source id…]}
 sources/<source id>/source.json   {id, batch, kind: "file"|"url", name, url?, capture_keep, stage, error?, sha256?,
                                    category? (default: the batch's; a batch can mix a servo and a power supply),
-                                   running: "capture"|"convert"|"extract"|null (the step a job is in now),
+                                   running: "capture"|"convert"|"extract"|null (the step a job is in now), note?,
                                    bundle: "<abs path of the Markdownify bundle>", history: [{stage, at}]}
 sources/<source id>/values.json   the extractor's output (CONTRACT §7), never rewritten after extraction
 sources/<source id>/review.json   human ops (CONTRACT §7.1), append-only
@@ -37,6 +37,8 @@ products.json                     products created here (generic provider), [{id
 silently; each step appends `{stage, at}` to `history`. Capture = `mdify capture --keep <capture_keep>` for URLs
 (default `html`; the 5 levels of markdownify CONTRACT §2.1), the file's bytes for files. Convert = `mdify` pipeline A.
 Extract = Option 1 with the logged-in CLI (default claude), the batch's category fields, every product of the batch.
+A URL with `capture_keep` = `link` alone keeps only the source record: it stops at `captured` with `note: "link only:
+nothing stored to read"` (no convert, no extract, never `failed`).
 `running` names the step a job is in (a re-extraction keeps the stage `extracted` while it runs) and is cleared when
 the step ends or fails; `GET /api/batches` and `GET /api/sources/<id>` return it. A restart clears a `running` left by
 the dead process and appends `failed` to the history for that step (a source it resumes then runs the step again).
@@ -48,7 +50,7 @@ the dead process and appends `failed` to the history for that step (a source it 
 | `GET /api/fields` | categories available (`fields/*.json`), each with `labels: {key: label}` (a field's first label as written; `{}` in open mode) |
 | `GET /api/products` | `[{id, title, provider}]` from the provider + `products.json` |
 | `POST /api/products` `{title}` | creates a product here (id = slug); returns it |
-| `GET /api/batches` | batches, newest first, each with its sources' `{id, name, kind, stage, error}` |
+| `GET /api/batches` | batches, newest first, each with its sources' `{id, name, kind, stage, running, error, note}` |
 | `POST /api/batches` (multipart: `files[]`, `urls` newline text, `products` JSON list, `category`, `capture_keep`) | creates the batch, queues every source, returns it |
 | `GET /api/sources/<id>` | `{source, values, review, effective}` — `effective` = values ⊕ review (§5) |
 | `GET /api/sources/<id>/file/<name>` | a bundle file (`source.<ext>`, `index.json`, `document.md`, `snapshot.jpg`) |
