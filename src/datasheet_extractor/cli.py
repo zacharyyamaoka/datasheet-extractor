@@ -10,6 +10,8 @@ left out.
   HTML), then robotparts' quote checker (option2.py).
 
 DIR/llm/ keeps the call's prompt, schema, argv, raw events.jsonl and the parsed output.
+
+`extract serve [--port 0] [--home DIR] [--products …]` runs the Sources app instead (CONTRACT.md; sources/server.py).
 """
 
 from __future__ import annotations
@@ -81,6 +83,10 @@ def extract(source: pathlib.Path, fields_path: pathlib.Path, option: int, backen
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "serve":
+        from .sources import server
+        return server.main(argv[1:])
     parser = argparse.ArgumentParser(prog="extract", description="A datasheet and a field list in, checked values "
                                      "out (Markdownify CONTRACT §7).")
     parser.add_argument("source", type=pathlib.Path, help="a local PDF, PNG/JPEG or HTML file")

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Write fields/actuator.json (CONTRACT §7 `fields.json`) from robotparts' Ingestor vocabulary.
+"""Write fields/<category>.json (CONTRACT §7 `fields.json`) for every category robotparts' Ingestor vocabulary
+defines (`vocab.CATEGORIES`).
 
-    uv run python scripts/make_fields.py [--robotparts /home/bam/robotparts] [--out fields/actuator.json]
+    uv run python scripts/make_fields.py [--robotparts /home/bam/robotparts] [--out-dir fields]
 
 WHY generated, not hand-written: robotparts' `tools/ingestor/vocab.py` is the vocabulary its 217 checked values
 were extracted with, so comparing the two pipelines is fair only if both ask for exactly the same keys, labels and
@@ -102,11 +103,11 @@ def load_vocab(robotparts: pathlib.Path):
     return vocab
 
 
-def build(robotparts: pathlib.Path) -> list[dict]:
+def build(robotparts: pathlib.Path, category: str = "actuator") -> list[dict]:
     vocab = load_vocab(robotparts)
     registry = vocab.registry()
     fields = []
-    for entry in vocab.vocabulary("actuator"):
+    for entry in vocab.vocabulary(category):
         reg = registry["keys"][entry.key]
         labels: list[str] = []
         for pattern in entry.labels:
@@ -137,11 +138,13 @@ def build(robotparts: pathlib.Path) -> list[dict]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--robotparts", type=pathlib.Path, default=pathlib.Path("/home/bam/robotparts"))
-    parser.add_argument("--out", type=pathlib.Path, default=ROOT / "fields" / "actuator.json")
+    parser.add_argument("--out-dir", type=pathlib.Path, default=ROOT / "fields")
     arguments = parser.parse_args()
-    fields = build(arguments.robotparts)
-    arguments.out.write_text(json.dumps(fields, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"{arguments.out}: {len(fields)} fields, {sum(len(f['labels']) for f in fields)} labels")
+    for category in sorted(load_vocab(arguments.robotparts).CATEGORIES):
+        fields = build(arguments.robotparts, category)
+        out = arguments.out_dir / f"{category}.json"
+        out.write_text(json.dumps(fields, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"{out}: {len(fields)} fields, {sum(len(f['labels']) for f in fields)} labels")
     return 0
 
 
