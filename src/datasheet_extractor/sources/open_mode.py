@@ -16,6 +16,7 @@ the cell's other header must name it.
 
 from __future__ import annotations
 
+import html
 import re
 
 from .. import option1
@@ -71,6 +72,13 @@ def build_prompt(bundle: option1.Bundle, part_model: str | None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _text(text: str) -> str:
+    """option1.plain, with HTML entities read as the characters they print.
+    WHY: Markdownify writes a table with merged cells as an HTML <table>, so its cells carry '&#126;' for '~' and
+    '&amp;' for '&' (LRS-350); a model may copy either spelling, and both mean the same printed text."""
+    return normal(html.unescape(option1.plain(html.unescape(text or ""))))
+
+
 def _value(printed: str):
     """A number as printed (int or float), else the text as printed."""
     printed = printed.strip()
@@ -82,18 +90,18 @@ def _value(printed: str):
 
 
 def _readable(value, printed: str, raw: str) -> list[str]:
-    text = normal(raw)
+    text = _text(raw)
     if isinstance(value, (int, float)):
         if printed.strip() not in [token for token, _ in printed_numbers(text)]:
             return [f"value {printed!r} is not printed as a number of its own in raw {raw!r}"]
         return []
-    if not printed.strip() or normal(printed).lower() not in text.lower():
+    if not printed.strip() or _text(printed).lower() not in text.lower():
         return [f"value {printed!r} is not printed in raw {raw!r}"]
     return []
 
 
 def _named(label: str, texts: list[str]) -> bool:
-    return bool(label) and any(normal(label).lower() in normal(text).lower() for text in texts if text)
+    return bool(label) and any(_text(label).lower() in _text(text).lower() for text in texts if text)
 
 
 def check_value(row: dict, bundle: option1.Bundle, part_model: str | None, grids: dict) -> Verdict:
@@ -114,13 +122,13 @@ def check_value(row: dict, bundle: option1.Bundle, part_model: str | None, grids
         reasons.append(f"{block_id} is a whole {block['type']}; a value cites the cell or block that prints it")
     if block.get("represented") is False:
         reasons.append(f"{block_id} was not converted by Markdownify (represented: false)")
-    own = option1.plain(bundle.text(block))
-    if not option1.plain(raw):
+    own = _text(bundle.text(block))
+    if not _text(raw):
         reasons.append("empty raw")
-    elif option1.plain(raw) not in own:
+    elif _text(raw) not in own:
         reasons.append(f"raw {raw!r} is not inside {block_id}'s text {own[:120]!r}")
     else:
-        reasons += _readable(value, printed, option1.plain(raw))
+        reasons += _readable(value, printed, raw)
     if reasons:
         return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
     if block["type"] == "table_cell":
@@ -140,7 +148,7 @@ def check_value(row: dict, bundle: option1.Bundle, part_model: str | None, grids
             reasons.append(f"the label {label!r} is neither the row label {own_label!r} nor the column header "
                            f"{' / '.join(col_texts)!r}")
             return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
-        if unit and not _named(unit, [option1.plain(raw)] + label_texts):
+        if unit and not _named(unit, [raw] + label_texts):
             reasons.append(f"the unit {unit!r} is printed neither in raw {raw!r} nor in its header")
         if part_model and option1.model_named(part_model, list(grid.texts.values())):
             # WHY beside the designation rule: Grid's designations miss 'LRS-350-24' and '60ASM200-1024C/2500C'
@@ -165,14 +173,14 @@ def check_value(row: dict, bundle: option1.Bundle, part_model: str | None, grids
     texts = [own]
     if not _named(label, texts):
         before = bundle.label_before(block)
-        if before is None or not _named(label, [option1.plain(bundle.text(before))]):
+        if before is None or not _named(label, [bundle.text(before)]):
             reasons.append(f"the label {label!r} is not in {block_id}'s text, nor in a label-only block right "
                            "before it")
             return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
-        cite["label_id"], cite["row"] = before["id"], option1.plain(bundle.text(before))
+        cite["label_id"], cite["row"] = before["id"], _text(bundle.text(before))
         grounding = (before.get("grounding") or []) + grounding
         texts.append(cite["row"])
-    if unit and not _named(unit, [option1.plain(raw)] + texts):
+    if unit and not _named(unit, [raw] + texts):
         reasons.append(f"the unit {unit!r} is not printed in raw {raw!r}")
     return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
 

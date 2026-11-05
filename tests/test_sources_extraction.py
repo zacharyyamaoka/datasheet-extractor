@@ -114,3 +114,16 @@ def test_open_mode_drops_what_the_structure_does_not_confirm():
 def test_open_mode_keys_are_slugs_of_the_printed_label():
     assert open_mode.key_of("RIPPLE & NOISE (max.)") == "spec.ripple_noise_max"
     assert open_mode.key_of("额定功率") == "spec.额定功率"
+
+
+def test_open_mode_reads_html_entities_as_the_characters_they_print():
+    # Markdownify writes a merged-cell table as HTML, so '~' and '&' arrive as '&#126;' and '&amp;' (LRS-350)
+    table = table_bundle([["MODEL", "LRS-350-12", "LRS-350-24"],
+                          ["RIPPLE &amp; NOISE (max.)", "120mVp-p", "150mVp-p"],
+                          ["VOLTAGE ADJ. RANGE", "10.2 &#126; 13.8V", "21.6 &#126; 28.8V"]])
+    rows = [{"label": "RIPPLE & NOISE (max.)", "value": "150", "unit": "mVp-p", "raw": "150mVp-p",
+             "id": _cell(table, "150mVp-p", "RIPPLE &amp; NOISE (max.)")},
+            {"label": "VOLTAGE ADJ. RANGE", "value": "21.6 ~ 28.8V", "unit": "V", "raw": "21.6 &#126; 28.8V",
+             "id": _cell(table, "21.6 &#126; 28.8V", "VOLTAGE ADJ. RANGE")}]
+    verdicts, _ = open_mode.judge({"values": [dict(row, condition="") for row in rows]}, table, "LRS-350-24")
+    assert [(v.key, v.reasons) for v in verdicts] == [("spec.ripple_noise_max", []), ("spec.voltage_adj_range", [])]
