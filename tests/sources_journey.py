@@ -368,6 +368,8 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
              if label != (value.get("label") or field_labels.get(value["key"]) or "\u0000no label")]
     RESULTS["rows_with_a_wrong_label"] = len(wrong)
     check(not wrong, "every row shows its field's label (GET /api/fields labels), never the bare key", wrong[:4] or shown_labels[:4])
+    entities = [line for line in page.inner_text("body").splitlines() if "&#" in line]
+    check(not entities, "no HTML entity text ('&#') anywhere on the review page (raw stored decoded)", entities[:3])
 
     def pick(key: str, fallback: int) -> dict:
         """The LRS-350 fixture's row by key; a real extraction's by position."""
@@ -555,6 +557,8 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
         RESULTS["open_mode"] = {"kept": len(open_rows), "labels": labels[:6]}
         check(bool(open_rows) and all(not label.startswith("spec.") for label in labels),
               "open mode (psu) rows show the label printed in the source", labels[:4])
+        entities = [line for line in page.inner_text("body").splitlines() if "&#" in line]
+        check(not entities, "no HTML entity text ('&#') on the open-mode PDF tab", entities[:3])
     ops_before = len(disk.ops(pdf_id))
     page.click("[data-testid=add-row]")
     page.fill("[data-testid=add-field]", "Mass")

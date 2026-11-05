@@ -127,6 +127,9 @@ def record(browser, server: Server, home: pathlib.Path) -> tuple[pathlib.Path, d
 
     ops = json.loads((home / "sources" / pdf_id / "review.json").read_text(encoding="utf-8"))["ops"]
     RESULTS["ops"] = [{key: op.get(key) for key in ("op", "value_id", "model", "product", "from", "to", "author")} for op in ops]
+    RESULTS["lrs_kept"] = page.locator("tr.r").count() - sum(1 for op in ops if op["op"] == "add")
+    RESULTS["entity_lines"] = [line for line in page.inner_text("body").splitlines() if "&#" in line]
+    RESULTS["current_range_printed"] = page.evaluate("""() => [...document.querySelectorAll('tr.r')].find((n) => n.querySelector('td.f').textContent.trim().toLowerCase() === 'current range')?.querySelector('td.pr')?.textContent ?? null""")
     RESULTS["provenance_shown"] = page.evaluate(f"() => document.querySelector('{row_selector(power)} .pv.hu')?.textContent")
     RESULTS["pdf_category"] = json.loads((home / "sources" / pdf_id / "source.json").read_text(encoding="utf-8")).get("category")
     url_dir = url_source(home)
@@ -150,11 +153,21 @@ def cut(video: pathlib.Path, marks: dict) -> None:
     real = f"{int(queue_end - queue_start) // 60}:{int(queue_end - queue_start) % 60:02d}"
     label = (f",drawtext=fontfile={FONT}:text='queue · {real.replace(":", "\\:")} real time at {speed:.0f}x':x=w-tw-24:y=h-th-20:fontsize=20:"
              "fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=8") if FONT.exists() else ""
-    graph = (f"[0:v]trim=0:{queue_start},setpts=PTS-STARTPTS[a];"
-             f"[0:v]trim={queue_start}:{queue_end},setpts=(PTS-STARTPTS)/{speed}{label}[b];"
-             f"[0:v]trim={marks['review']}:{marks['end']},setpts=PTS-STARTPTS[c];[a][b][c]concat=n=3:v=1[out]")
-    for name, codec in (("hero.mp4", ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]), ("hero.webm", ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "34"])):
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(video), "-filter_complex", graph, "-map", "[out]", "-an", *codec, str(MEDIA / name)], check=True)
+    # WHY one ffmpeg per segment: three trims of one input in a single graph buffer the whole recording (a 4-minute
+    # queue was SIGKILLed for memory); seeking each segment on its own keeps every pass small.
+    parts = pathlib.Path(tempfile.mkdtemp(prefix="sources-media-cut-"))
+    segments = [(0.0, queue_start, ""), (queue_start, queue_end, f"setpts=PTS/{speed}{label}"), (marks["review"], marks["end"], "")]
+    for number, (begin, finish, chain) in enumerate(segments):
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{begin:.3f}", "-to", f"{finish:.3f}", "-i", str(video),
+                        *(["-vf", chain] if chain else []), "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "25",
+                        str(parts / f"{number}.mp4")], check=True)
+    listing = parts / "list.txt"
+    listing.write_text("".join(f"file '{parts / f'{number}.mp4'}'\n" for number in range(len(segments))), encoding="utf-8")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy",
+                    "-movflags", "+faststart", str(MEDIA / "hero.mp4")], check=True)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(MEDIA / "hero.mp4"), "-c:v", "libvpx-vp9", "-b:v", "0",
+                    "-crf", "34", str(MEDIA / "hero.webm")], check=True)
+    shutil.rmtree(parts, ignore_errors=True)
     duration = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(MEDIA / "hero.mp4")],
                               capture_output=True, text=True, check=True).stdout.strip()
     RESULTS["hero_seconds"] = round(float(duration), 1)
@@ -180,6 +193,10 @@ def main() -> int:
         shutil.rmtree(home, ignore_errors=True)
     (MEDIA / "media-results-real.json").write_text(json.dumps(RESULTS, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(RESULTS, indent=1, ensure_ascii=False))
+    # WHY fail on "&#": `raw` is stored decoded (46d75a2); entity text on the page means an undecoded value slipped in.
+    if RESULTS.get("entity_lines"):
+        print(f"FAIL  HTML entity text on the review page: {RESULTS['entity_lines'][:3]}")
+        return 1
     return 0
 
 
