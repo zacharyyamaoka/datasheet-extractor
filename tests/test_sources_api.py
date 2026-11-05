@@ -333,7 +333,8 @@ def test_the_queue_review_prompt_and_publish(tmp_path, fake_model, isolated_cach
         status, queued = client.post(f"/api/sources/{pdf_id}/extract", {})
         assert status == 202 and queued == {"queued": pdf_id, "model": "claude", "category": "actuator"}
         until(lambda: (home / "sources" / pdf_id / "values.json").is_file()
-              and list((home / "sources" / pdf_id).glob("values-*.json")))
+              and list((home / "sources" / pdf_id).glob("values-*.json"))
+              and client.get(f"/api/sources/{pdf_id}")[1]["source"]["running"] is None)
         client.wait(batch["id"])
         assert [path.read_bytes() for path in (home / "sources" / pdf_id).glob("values-*.json")] == [old]
         assert client.get(f"/api/sources/{pdf_id}")[1]["source"]["history"][-1]["stage"] == "extracted"
@@ -436,3 +437,61 @@ def test_serve_prints_the_url_and_answers(tmp_path):
     finally:
         process.terminate()
         process.wait(timeout=10)
+
+
+@needs_markdownify
+def test_running_names_the_step_a_job_is_in_and_a_restart_clears_a_stale_one(tmp_path, fake_model, isolated_cache):
+    home = tmp_path / "home"
+    app, server, client = start(home)
+    try:
+        _, batch = client.post_batch(files=[("ax.html", HTML.encode())])
+        assert client.get("/api/batches")[1][0]["sources"][0]["running"] in (None, "capture", "convert", "extract")
+        source_id = client.wait(batch["id"])["sources"][0]["id"]
+        detail = client.get(f"/api/sources/{source_id}")[1]
+        assert detail["source"]["stage"] == "extracted" and detail["source"]["running"] is None
+        gate, entered = threading.Event(), threading.Event()
+        real = llm.extract
+
+        def held(*args, **kwargs):
+            entered.set()
+            gate.wait(30)
+            return real(*args, **kwargs)
+
+        llm.extract = held
+        try:
+            assert client.post(f"/api/sources/{source_id}/extract", {})[0] == 202
+            assert entered.wait(30)
+            during = client.get(f"/api/sources/{source_id}")[1]["source"]
+            assert during["stage"] == "extracted" and during["running"] == "extract"   # a re-extraction is visible
+            listed = next(b for b in client.get("/api/batches")[1] if b["id"] == batch["id"])["sources"][0]
+            assert listed["running"] == "extract"
+        finally:
+            gate.set()
+            llm.extract = real
+        until(lambda: client.get(f"/api/sources/{source_id}")[1]["source"]["running"] is None
+              and app.queue.idle())
+        fake_model.fail_on.add("AX-20")
+        assert client.post(f"/api/sources/{source_id}/extract", {})[0] == 202
+        failed = until(lambda: (s := client.get(f"/api/sources/{source_id}")[1]["source"])["stage"] == "failed" and s)
+        assert failed["running"] is None
+    finally:
+        stop(app, server)
+    # A process that died mid-step left `running` behind: the restart clears it and marks that step failed.
+    store = Store(home)
+    left = store.create_batch("left mid-convert", "actuator", [], [{"kind": "file", "name": "ax2.html",
+                                                                     "data": HTML.replace("</body>", "<p>Rev 2</p></body>").encode()}])
+    mid = left["sources"][0]
+    store.update_source(mid, running="capture")
+    store.update_source(source_id, running="extract")
+    fake_model.fail_on.clear()
+    app, server, client = start(home)
+    try:
+        resumed = client.wait(left["id"])["sources"][0]
+        assert resumed["stage"] == "extracted" and resumed["running"] is None
+        stages = [h["stage"] for h in client.get(f"/api/sources/{resumed['id']}")[1]["source"]["history"]]
+        assert stages == ["added", "failed", "added", "captured", "converted", "extracted"]
+        cut = client.get(f"/api/sources/{source_id}")[1]["source"]
+        assert cut["stage"] == "failed" and cut["running"] is None and "extract" in cut["error"]
+        assert "restart" in cut["error"]
+    finally:
+        stop(app, server)

@@ -26,6 +26,9 @@ STAGES = ("added", "captured", "converted", "extracted", "published")
 FAILED = "failed"
 CAPTURE_LEVELS = ("link", "html", "snapshot", "pdf", "archive")   # Markdownify CONTRACT §2.1
 DEFAULT_KEEP = "html"
+STEPS = ("capture", "convert", "extract")   # what `running` names while a job is in one
+# Fields written as null, never removed, when set to None: a reader can tell "nothing is running" from "not recorded".
+NULLABLE = ("running",)
 SOURCE_ID = re.compile(r"^(?:[0-9a-f]{12}|pending-\d+)$")
 BATCH_ID = re.compile(r"^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$")
 
@@ -63,6 +66,13 @@ def parse_keep(text: str | None) -> str:
     if "html" not in chosen:
         raise ValueError("capture_keep must include html: values are read from, and cite, the page's HTML bytes")
     return ",".join(name for name in CAPTURE_LEVELS if name in chosen)
+
+
+def _with_nulls(record: dict) -> dict:
+    """A source.json written before a NULLABLE field existed reads with it null."""
+    for name in NULLABLE:
+        record.setdefault(name, None)
+    return record
 
 
 def safe_name(name: str) -> str:
@@ -105,16 +115,16 @@ class Store:
             return None
         record = read_json(self.source_dir(source_id) / "source.json")
         if record is not None:
-            return record
+            return _with_nulls(record)
         if source_id.startswith("pending-"):
             for path in (self.home / "sources").glob("*/source.json"):
                 record = read_json(path, {}) or {}
                 if record.get("pending_id") == source_id:
-                    return record
+                    return _with_nulls(record)
         return None
 
     def sources(self) -> list[dict]:
-        return [record for path in sorted((self.home / "sources").glob("*/source.json"))
+        return [_with_nulls(record) for path in sorted((self.home / "sources").glob("*/source.json"))
                 if (record := read_json(path))]
 
     def batch(self, batch_id: str) -> dict | None:
@@ -160,7 +170,7 @@ class Store:
                     record.update({"name": name, "capture_keep": None})
                 else:
                     record.update({"name": item["url"], "url": item["url"], "capture_keep": item["capture_keep"]})
-                record.update({"stage": "added", "bundle": str(directory / "bundle"),
+                record.update({"stage": "added", "running": None, "bundle": str(directory / "bundle"),
                                "history": [{"stage": "added", "at": created}]})
                 write_json(directory / "source.json", record)
                 source_ids.append(source_id)
@@ -176,7 +186,7 @@ class Store:
             if record is None:
                 raise KeyError(source_id)
             for name, value in fields.items():
-                if value is None:
+                if value is None and name not in NULLABLE:
                     record.pop(name, None)
                 else:
                     record[name] = value
@@ -184,7 +194,8 @@ class Store:
             return record
 
     def advance(self, source_id: str, stage: str, error: str | None = None, **fields) -> dict:
-        """Move a source to `stage`, appending `{stage, at}` to its history (and `error` when it failed)."""
+        """Move a source to `stage`, appending `{stage, at}` to its history (and `error` when it failed). A stage
+        change ends the step that made it, so `running` is cleared in the same write."""
         if stage not in STAGES and stage != FAILED:
             raise ValueError(stage)
         with self.lock:
@@ -192,8 +203,15 @@ class Store:
             if record is None:
                 raise KeyError(source_id)
             history = list(record.get("history") or []) + [{"stage": stage, "at": now()}]
+            fields.setdefault("running", None)
             return self.update_source(record["id"], stage=stage, history=history,
                                       error=error[-2000:] if error and stage == FAILED else None, **fields)
+
+    def set_running(self, source_id: str, step: str | None) -> dict:
+        """`running`: the queue step a job is in now (CONTRACT §3), or None when no job is in one."""
+        if step is not None and step not in STEPS:
+            raise ValueError(step)
+        return self.update_source(source_id, running=step)
 
     def identify(self, source_id: str, sha256: str) -> str:
         """The bytes are known: rename `pending-<n>` to the sha256's first 12 hex and fix the batch's list. Raises

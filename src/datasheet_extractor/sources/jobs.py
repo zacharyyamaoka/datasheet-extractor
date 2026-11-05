@@ -7,9 +7,14 @@ two, each stage change written to source.json before the next step starts.
   HTML it kept (mdify capture builds the bundle in the same visit), so this step checks that bundle is complete.
 - **extract**: extraction.py (Option 1, every product of the batch).
 
+While a job is in a step, source.json's `running` names it (`capture`, `convert`, `extract`), and the stage change
+that ends the step clears it. WHY: a re-extraction keeps the stage at `extracted` while it runs, so without it the
+page could not show that anything is happening.
+
 A restart resumes every source left in `added`, `captured` or `converted` from that stage (a half-written bundle is
 discarded first); a re-extraction cut off by the restart, whose values.json was set aside and never replaced, is
-marked `failed` with that reason. The watcher polls every 2 s and moves a `converted` (or `failed`, with a complete
+marked `failed` with that reason. A `running` left by the dead process is cleared and its step marked `failed` in the
+history; a source the restart resumes then goes back to the stage it had and runs that step again. The watcher polls every 2 s and moves a `converted` (or `failed`, with a complete
 bundle) source to `extracted` when a values.json appears from outside — the prompt's command, or any agent.
 """
 
@@ -82,6 +87,19 @@ class Queue:
     def resume(self) -> None:
         for source in self.store.sources():
             directory = self.store.source_dir(source["id"])
+            if source.get("running"):
+                # No job outlives the process that ran it, so a `running` seen at startup is a step cut off.
+                reason = f"the {source['running']} step was cut off by a restart"
+                if source["stage"] in ("added", "captured", "converted"):
+                    self.store.advance(source["id"], FAILED, reason)
+                    source = self.store.advance(source["id"], source["stage"])
+                else:
+                    if (directory / "values.json").is_file():
+                        self._seen[source["id"]] = (directory / "values.json").stat().st_mtime
+                    self.store.advance(source["id"], FAILED, reason + (
+                        "" if (directory / "values.json").is_file() else " before it wrote values.json (the "
+                        "previous values are kept beside it as values-<sha>.json)"))
+                    continue
             if source["stage"] in ("added", "captured", "converted"):
                 self.submit(source["id"])
             elif source["stage"] in ("extracted", "published") and not (directory / "values.json").is_file():
@@ -116,6 +134,7 @@ class Queue:
             if self.stopping.is_set():
                 return
             if re_extract:
+                self.store.set_running(current, "extract")
                 path = self.store.source_dir(current) / "values.json"
                 if path.is_file():
                     self.store.archive_values(current, hashlib.sha256(path.read_bytes()).hexdigest())
@@ -123,6 +142,7 @@ class Queue:
                 return
             source = self.store.source(current)
             if source["stage"] == "added":
+                self.store.set_running(current, "capture")
                 current = self._capture(source)
                 if current is None:
                     return
@@ -130,11 +150,13 @@ class Queue:
             if self.stopping.is_set():
                 return
             if source["stage"] == "captured":
+                self.store.set_running(current, "convert")
                 self._convert(source)
                 source = self.store.source(current)
             if self.stopping.is_set():
                 return
             if source["stage"] == "converted":
+                self.store.set_running(current, "extract")
                 self._extract(current, backend)
         except Exception as error:  # noqa: BLE001 - every failure is written to the source, never lost
             detail = "".join(traceback.format_exception_only(type(error), error)).strip()
@@ -143,6 +165,11 @@ class Queue:
             except KeyError:
                 pass
         finally:
+            try:
+                if (self.store.source(current) or {}).get("running"):
+                    self.store.set_running(current, None)    # a step left without a stage change (a stop)
+            except KeyError:
+                pass
             with self.lock:
                 self.active.discard(current)
                 self.active.discard(source_id)

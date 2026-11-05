@@ -6,7 +6,8 @@ opens no browser window. WHY: Zach's no-focus-steal rule — a tool never fronts
     GET  /api/fields                       categories available (fields/*.json)
     GET  /api/products                     [{id, title, provider}]
     POST /api/products {title}             a product created here (id = slug), in <home>/products.json
-    GET  /api/batches                      newest first, each with its sources' {id, name, kind, stage, error}
+    GET  /api/batches                      newest first, each with its sources' {id, name, kind, stage, running,
+                                           error}
     POST /api/batches                      multipart: files[], urls, products (JSON list), category, capture_keep
     GET  /api/sources/<id>                 {source, values, review, effective}
     GET  /api/sources/<id>/file/<name>     one file of the source's bundle
@@ -116,7 +117,8 @@ class App:
             sources = []
             for source_id in batch["sources"]:
                 source = self.store.source(source_id) or {"id": source_id}
-                sources.append({name: source.get(name) for name in ("id", "name", "kind", "stage", "error")})
+                sources.append({name: source.get(name) for name in ("id", "name", "kind", "stage", "running",
+                                                                     "error")})
             out.append(dict(batch, sources=sources))
         return out
 
