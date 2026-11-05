@@ -313,6 +313,10 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
         page.select_option(f'[data-category="{picked_id}"]', "psu")
     on_disk = json.loads((disk.home / "sources" / picked_id / "source.json").read_text(encoding="utf-8")).get("category")
     check(answered.value.ok and on_disk == "psu", "the queue's category picker sets the source's category", (answered.value.status, on_disk))
+    if kind == "real":  # a real re-extraction: the row says so quietly while its job runs
+        page.wait_for_selector(f'[data-testid=queue-source][data-source="{picked_id}"] [data-testid=running]', timeout=15000)
+        check(page.text_content(f'[data-testid=queue-source][data-source="{picked_id}"] [data-testid=running]') == "extracting…",
+              "the queue row shows 'extracting…' while the job runs (source.running)")
     review_stage, source_id = page.evaluate(stage_of, review_name)
     check(review_stage == "extracted", f"{review_name} is extracted", review_stage)
     product_id = created.get(titles[-1])
@@ -352,10 +356,15 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     else:
         check(bool(models), "the mapping step lists the models this datasheet covers", models)
     check(len(kept) >= 3, "the extraction kept at least 3 values to review", len(kept))
+    # a row shows its field's label from GET /api/fields (fac3433), or the label the row itself carries; never the key
+    field_labels = {}
+    for entry in json.loads(page.evaluate("async () => JSON.stringify(await (await fetch('/api/fields')).json())")):
+        field_labels.update(entry.get("labels") or {})
     shown_labels = page.evaluate("() => [...document.querySelectorAll('tr.r td.f')].map((n) => n.textContent)")
-    bare = [label for label, value in zip(shown_labels, kept) if label == value["key"]]
-    RESULTS["rows_showing_their_key"] = len(bare)
-    check(not bare, "every row shows its field's label, never the bare key", bare[:4])
+    wrong = [(label, value["key"]) for label, value in zip(shown_labels, kept)
+             if label != (value.get("label") or field_labels.get(value["key"]) or "\u0000no label")]
+    RESULTS["rows_with_a_wrong_label"] = len(wrong)
+    check(not wrong, "every row shows its field's label (GET /api/fields labels), never the bare key", wrong[:4] or shown_labels[:4])
 
     def pick(key: str, fallback: int) -> dict:
         """The LRS-350 fixture's row by key; a real extraction's by position."""
@@ -423,15 +432,25 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     page.fill("[data-testid=map-search]", product_id)
     page.wait_for_selector(".pop .psearch-list li:not(.create)")
     page.click(".pop .psearch-list li:not(.create)")
-    # every value, or — when the extraction read some per model — the shared ones and that model's own (§7.1)
+    # the map names the model as the extraction's per-model run did when one read it ("AK80-9" in "AK80-9 V3.0 KV100")
     norm = lambda text: "".join(ch for ch in text.lower() if ch.isalnum())  # noqa: E731
-    same = lambda a, b: norm(a).startswith(norm(b)) or norm(b).startswith(norm(a))  # noqa: E731 - "AK80-9 V3.0 KV100" is "AK80-9"
-    per_model = any(value.get("part_models") for value in kept)
-    mapped_ids = [value["id"] for value in kept if not value.get("part_models") or any(same(model, other) for other in value["part_models"])] if per_model else []
-    mapped_ids = mapped_ids or ["*"]
-    RESULTS["mapped"] = {"model": model, "per_model": per_model, "value_ids": len(mapped_ids)}
-    expect({"op": "assign", "products": [product_id], "value_ids": mapped_ids, "note": f"model {model}"}, "map a model (assign)")
+    runs = [run["model"] for run in (state["values"].get("extractor") or {}).get("part_models") or []]
+    sent = next((run for run in runs if norm(run).startswith(norm(model)) or norm(model).startswith(norm(run))), model)
+    RESULTS["map_model"] = {"printed": model, "sent": sent}
+    expect({"op": "map", "model": sent, "product": product_id}, "map a model (map op)")
     check("(1 mapped)" in page.text_content("[data-testid=mapped-count]"), "the mapping step counts the mapped model", page.text_content("[data-testid=mapped-count]"))
+    following = json.loads(page.evaluate(f"async () => JSON.stringify(await (await fetch('/api/sources/{source_id}')).json())"))["effective"]["values"]
+    following = [value["id"] for value in following if product_id in (value.get("products") or [])]
+    RESULTS["values_following_the_map"] = len(following)
+    check(power["id"] in following, "the mapped model's values apply to the product (effective)", f"{len(following)} values")
+    page.locator("[data-testid=mapping] .mp").filter(has=page.get_by_text(model, exact=True)).locator("[data-unmap]").click()
+    expect({"op": "map", "model": sent, "product": None}, "unmap a model (map, product null)")
+    check("(0 mapped)" in page.text_content("[data-testid=mapped-count]"), "unmapping clears it", page.text_content("[data-testid=mapped-count]"))
+    page.locator("[data-testid=mapping] .mp").filter(has=page.get_by_text(model, exact=True)).locator("[data-map]").click()
+    page.fill("[data-testid=map-search]", product_id)
+    page.wait_for_selector(".pop .psearch-list li:not(.create)")
+    page.click(".pop .psearch-list li:not(.create)")
+    expect({"op": "map", "model": sent, "product": product_id}, "map it again")
 
     # a human row from the keyboard (a), no box: grounding null, "no source cited"
     page.keyboard.press("a")
@@ -516,6 +535,10 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
         page.click(f'[data-testid=tabs] [data-tab="{pdf_id}"]')
         page.wait_for_function("(id) => location.hash.endsWith(id)", arg=pdf_id)
         wait_ready(page)
+        try:  # the tab redraws once the job's `running` clears; read the picker after that settles
+            page.wait_for_function("() => document.querySelector('[data-testid=source-category]')?.value === 'psu'", timeout=10000)
+        except Exception:  # noqa: BLE001 - the check below reports what it shows
+            pass
         check(page.input_value("[data-testid=source-category]") == "psu", "the tab's category picker shows the source's own category", page.input_value("[data-testid=source-category]"))
         open_rows = (json.loads(page.evaluate(f"async () => JSON.stringify(await (await fetch('/api/sources/{pdf_id}')).json())"))["effective"] or {}).get("values") or []
         open_rows = [value for value in open_rows if value.get("verdict") == "kept"]
@@ -560,6 +583,9 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     if kind == "stub":
         with page.expect_response(lambda response: response.url.endswith(f"/api/sources/{pdf_id}/extract")) as answered:
             page.select_option("[data-testid=source-category]", "psu")
+        page.wait_for_selector("[data-testid=source-running]", timeout=5000)
+        check(page.text_content("[data-testid=source-running]") == "extracting…", "the tab header shows 'extracting…' while the job runs (source.running)")
+        page.wait_for_selector("[data-testid=source-running]", state="detached", timeout=15000)
         page.wait_for_function("() => document.querySelector('[data-testid=source-stage]').textContent === 'extracted'", timeout=15000)
         on_disk = json.loads((disk.home / "sources" / pdf_id / "source.json").read_text(encoding="utf-8")).get("category")
         check(answered.value.ok and on_disk == "psu", "the tab's category picker sets the category and extracts again", (answered.value.status, on_disk))
@@ -600,6 +626,32 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     page.click("[data-testid=log-fold]")
     page.click("[data-testid=mapping-fold]")
     check(abs(rect(page, "[data-testid=log]")["height"] - log_after) <= TOLERANCE, "unfolding the log restores its dragged height", rect(page, "[data-testid=log]")["height"])
+
+    # 6. A link-only source: it stops at `captured` with a quiet note; no category picker, no Run extraction (9ea38b5)
+    page.goto(server.url + "#/add")
+    page.wait_for_selector("[data-testid=category] option", state="attached")
+    page.fill("[data-testid=urls]", CUBEMARS_URL + "\n")
+    page.check("[data-testid=keep-link-only]")
+    page.click("[data-testid=submit]")
+    page.wait_for_selector("[data-testid=queue] [data-testid=batch]")
+    row = "[data-testid=batch]:first-child [data-testid=queue-source]"
+    try:
+        page.wait_for_selector(f"{row} [data-testid=note]", timeout=120000)
+    except Exception:  # noqa: BLE001 - the checks below say what the row shows instead
+        pass
+    link_row = page.evaluate(f"""() => {{ const n = document.querySelector('{row}');
+        return {{stage: n.dataset.stage, id: n.dataset.source, note: n.querySelector('[data-testid=note]')?.textContent || null,
+                 picker: Boolean(n.querySelector('[data-category]')), open: Boolean(n.querySelector('[data-open]'))}}; }}""")
+    RESULTS["link_only"] = link_row
+    check(link_row["stage"] == "captured" and link_row["note"] == "link only: nothing stored to read" and not link_row["picker"],
+          "a link-only source stops at captured with its note, and the queue offers no category picker", link_row)
+    batch_id = page.evaluate("() => document.querySelector('[data-testid=batch]').dataset.batch")
+    page.goto(f"{server.url}#/batch/{batch_id}/{link_row['id']}")
+    page.wait_for_selector("[data-testid=stopped]")
+    tab = page.evaluate("""() => ({note: document.querySelector('[data-testid=source-note-text]')?.textContent || null,
+        run: Boolean(document.querySelector('[data-testid=run-extraction]')), picker: Boolean(document.querySelector('[data-testid=source-category]'))})""")
+    check(tab == {"note": "link only: nothing stored to read", "run": False, "picker": False},
+          "a link-only tab shows the note quietly and offers no Run extraction", tab)
 
     # WHY set these aside: the source highlighter shows an archived web page in a sandboxed, script-free srcdoc frame
     # whose CSP blocks every fetch (source-highlighter ARCHIVED_PAGE_CSP), so the page's own scripts and assets are

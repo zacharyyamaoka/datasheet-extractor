@@ -1,7 +1,7 @@
 // The Sources app (CONTRACT §6): three screens in one page — Add Sources, the Queue, and a batch with one tab per
 // source, each tab the review view. Routes live in the hash: #/add, #/queue, #/batch/<batch id>/<source id>.
 
-import { api, esc, h, $, $$, toast } from "./util.js";
+import { api, esc, h, $, $$, stopped, toast } from "./util.js";
 import { addScreen } from "./add.js";
 import { queueScreen } from "./queue.js";
 import { reviewTab } from "./review.js";
@@ -29,7 +29,7 @@ function go(hash) {
 }
 
 function drawNav() {
-  const running = batches.flatMap((batch) => batch.sources).filter((source) => !terminal(source.stage)).length;
+  const running = batches.flatMap((batch) => batch.sources).filter((source) => source.running || (!terminal(source.stage) && !stopped(source))).length;
   $("[data-testid=queue-badge]").textContent = running ? String(running) : "";
   $("[data-testid=queue-badge]").hidden = !running;
   const { name } = route();

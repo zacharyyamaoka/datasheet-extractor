@@ -2,6 +2,12 @@
 
 export const STAGES = ["added", "captured", "converted", "extracted", "published"];
 
+/** A source the queue stopped on purpose, with a `note` (CONTRACT §3: link only — nothing stored to read). */
+export const stopped = (source) => Boolean(source?.note) && !source?.running;
+
+/** source.json `running` (CONTRACT §3): the step a job is in now, said quietly. */
+export const runningText = (step) => (step ? `${{ capture: "capturing", convert: "converting", extract: "extracting" }[step] || step}…` : "");
+
 // ---- the HTTP API (CONTRACT §4) -------------------------------------------------------------------------------------
 
 async function call(method, path, body) {

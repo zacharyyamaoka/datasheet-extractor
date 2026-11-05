@@ -5,14 +5,13 @@
 // V3's per-product columns as the "By product" view. Edit in place, no Fix button, no modal; untouched = accepted.
 
 import {
-  STAGES, api, $, $$, categories, categoryOptions, copyText, day, deepEqual, esc, fieldLabel, foldable, formatValue, h, initials, moment,
+  STAGES, api, $, $$, categories, runningText, stopped, categoryOptions, copyText, day, deepEqual, esc, fieldLabel, foldable, formatValue, h, initials, moment,
   parseTyped, readStored,
   splitter, toast, writeStored,
 } from "./util.js";
 import { sourceFileOf, sourcePane } from "./source-pane.js";
 import { allProducts, productSearch, productTitle } from "./products.js";
 
-const MODEL_NOTE = /^model (.+)$/; // an assign/unassign of the whole datasheet made by the mapping step says which model
 const groundingsOf = (row) => (Array.isArray(row?.grounding) ? row.grounding : row?.grounding ? [row.grounding] : []);
 const slug = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 const normal = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -118,14 +117,16 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
     const sha = source.sha256 || data.values?.source?.sha256;
     const assigned = rows.some((value) => value.products.length && !value.rejected);
     const extracted = Boolean(data.values);
+    // WHY no extraction controls on a link-only source: nothing was stored to read, and POST …/extract answers 409.
+    const linkOnly = source.capture_keep === "link";
     head.innerHTML = `<span class="kind">${esc(kind)}</span><h1 title="${esc(source.name)}">${esc(source.name)}</h1>
-      <span class="meta">${source.url ? `<a href="${esc(source.url)}" target="_blank" rel="noreferrer noopener">${esc(new URL(source.url).host)}</a> · ` : ""}${retrieved ? `retrieved ${esc(day(retrieved))} · ` : ""}${sha ? `sha256 <code>${esc(sha.slice(0, 8))}…</code> · ` : ""}<span class="stage${source.stage === "failed" ? " failed" : ""}" data-testid="source-stage">${esc(source.stage)}</span></span>
+      <span class="meta">${source.url ? `<a href="${esc(source.url)}" target="_blank" rel="noreferrer noopener">${esc(new URL(source.url).host)}</a> · ` : ""}${retrieved ? `retrieved ${esc(day(retrieved))} · ` : ""}${sha ? `sha256 <code>${esc(sha.slice(0, 8))}…</code> · ` : ""}<span class="stage${source.stage === "failed" ? " failed" : ""}" data-testid="source-stage">${esc(source.stage)}</span>${source.running ? ` <span class="running" data-testid="source-running">${esc(runningText(source.running))}</span>` : source.note ? ` <span class="running" data-testid="source-note-text">${esc(source.note)}</span>` : ""}</span>
       <span class="sp"></span>
       ${extracted ? `<div class="seg" role="group" aria-label="View"><button type="button" data-view="rows" aria-pressed="${view === "rows"}">Rows</button><button type="button" data-view="product" aria-pressed="${view === "product"}">By product</button></div>` : ""}
-      <label class="cat" title="What to extract from this source; changing it runs the extraction again"><span class="n">Extract</span>
-        <select class="in" data-testid="source-category">${categoryOptions(categoryList, source.category || batch?.category)}</select></label>
+      ${linkOnly ? "" : `<label class="cat" title="What to extract from this source; changing it runs the extraction again"><span class="n">Extract</span>
+        <select class="in" data-testid="source-category">${categoryOptions(categoryList, source.category || batch?.category)}</select></label>`}
       <button type="button" class="btn ghost" data-testid="copy-prompt" title="A prompt any AI agent can run to extract this source">Copy prompt</button>
-      <button type="button" class="btn ghost" data-testid="run-extraction" ${source.bundle ? "" : "disabled title=\"not converted yet\""}>Run extraction</button>
+      ${linkOnly ? "" : `<button type="button" class="btn ghost" data-testid="run-extraction" ${source.bundle ? "" : "disabled title=\"not converted yet\""}>Run extraction</button>`}
       <button type="button" class="btn pri" data-testid="publish" ${assigned ? "" : "disabled title=\"assign a product first\""}>Publish</button>`;
     for (const button of $$("[data-view]", head)) {
       button.addEventListener("click", () => {
@@ -135,7 +136,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
       });
     }
     // A source's own category (CONTRACT §2, §4): saved to source.json, then the extraction runs again with it.
-    $("[data-testid=source-category]", head).addEventListener("change", async (event) => {
+    $("[data-testid=source-category]", head)?.addEventListener("change", async (event) => {
       const category = event.target.value;
       try {
         const result = await api.extract(sourceId, { category });
@@ -156,7 +157,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
         toast(`No prompt: ${error.message}`, "error");
       }
     });
-    $("[data-testid=run-extraction]", head).addEventListener("click", async () => {
+    $("[data-testid=run-extraction]", head)?.addEventListener("click", async () => {
       try {
         await api.extract(sourceId);
         toast("Extraction started");
@@ -184,13 +185,14 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
   /** Poll while the pipeline is working on this source; draw the values once they exist. */
   function watch() {
     clearTimeout(poll);
-    const busy = !["extracted", "published", "failed"].includes(data.source.stage);
+    // WHY `running` too: a re-extraction keeps the stage at `extracted` while its job runs (CONTRACT §3).
+    const busy = (!["extracted", "published", "failed"].includes(data.source.stage) && !stopped(data.source)) || Boolean(data.source.running);
     if (!busy || destroyed) return;
     poll = setTimeout(async () => {
-      const before = data.source.stage;
+      const before = `${data.source.stage}/${data.source.running}`;
       await load().catch(() => {});
       if (destroyed) return;
-      if (data.source.stage !== before) {
+      if (`${data.source.stage}/${data.source.running}` !== before) {
         await drawAll();
         onChanged?.();
       }
@@ -200,8 +202,8 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
 
   // ---- the source pane ---------------------------------------------------------------------------------------------
   async function mountSource() {
-    if (pane || !data.source.bundle) {
-      if (!data.source.bundle) left.innerHTML = `<div class="src-wait">The source appears here once it is captured.</div>`;
+    if (pane || !data.source.bundle || data.source.capture_keep === "link") {
+      if (!data.source.bundle || data.source.capture_keep === "link") left.innerHTML = `<div class="src-wait">${data.source.note ? esc(data.source.note) : "The source appears here once it is captured."}</div>`;
       return;
     }
     try {
@@ -290,7 +292,8 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
       const reached = STAGES.indexOf(data.source.stage);
       right.innerHTML = `<div class="waiting" data-testid="waiting">${data.source.stage === "failed"
         ? `<p class="answer bad">Failed: ${esc(data.source.error || "no error given")}</p>`
-        : `<p class="answer">${esc(data.source.stage)} · the values appear here once extracted <span class="n">(${Math.max(reached, 0) + 1} of ${STAGES.length})</span></p>`}
+        : stopped(data.source) ? `<p class="answer quiet" data-testid="stopped">${esc(data.source.note)}</p><p class="n">This source keeps only its link, so there is nothing to extract.</p>`
+        : `<p class="answer">${esc(data.source.running ? runningText(data.source.running) : data.source.stage)} · the values appear here once extracted <span class="n">(${Math.max(reached, 0) + 1} of ${STAGES.length})</span></p>`}
         <ol class="history">${history}</ol></div>`;
       return;
     }
@@ -421,47 +424,36 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
     const readModels = runs.map((run) => run.model);
     if (!runs.length && read) readModels.push(read);
     const named = (model) => runs.filter((run) => sameModel(run.model, model)).flatMap((run) => run.products || []);
-    const mapped = new Map(models.map((model) => [model, []]));
-    for (const op of data.review?.ops || []) {
-      const model = (op.note || "").match(MODEL_NOTE)?.[1];
-      if (!model || !mapped.has(model)) continue;
-      for (const product of op.products) {
-        const list = mapped.get(model);
-        if (op.op === "assign" && !list.includes(product)) list.push(product);
-        if (op.op === "unassign" && list.includes(product)) list.splice(list.indexOf(product), 1);
-      }
-    }
-    return { models, readModels, named, mapped };
-  }
-
-  /** The value ids a model's product gets: every value, unless some were read per model — then only the shared ones
-   * and that model's own (§7.1: "a value that differs per product … is assigned to that product only"). */
-  function idsForModel(model) {
-    if (!rows.some((value) => value.part_models?.length)) return ["*"];
-    const ids = rows.filter((value) => !value.part_models?.length || value.part_models.some((other) => sameModel(other, model))).map((value) => value.id);
-    return ids.length ? ids : ["*"];
+    // WHY the run's name: the server assigns a map's values by `part_models` (the name each per-model run used, e.g.
+    // "AK80-9", printed inside the header "AK80-9 V3.0 KV100"), so a map names the model that way when a run read it.
+    const mapName = (model) => runs.find((run) => sameModel(run.model, model))?.model ?? model;
+    // §7.1 `map`: the server's `effective.models` ({model: product}); else the last map op on a model (null unmaps).
+    const mapped = new Map(models.map((model) => [model, null]));
+    const served = data.effective?.models;
+    const byName = new Map(models.map((model) => [mapName(model), model]));
+    if (served) for (const model of models) mapped.set(model, served[mapName(model)] ?? null);
+    else for (const op of data.review?.ops || []) if (op.op === "map" && byName.has(op.model)) mapped.set(byName.get(op.model), op.product ?? null);
+    return { models, readModels, named, mapped, mapName };
   }
 
   function drawMapping() {
     const { models, readModels, mapped } = mapping();
-    const count = [...mapped.values()].filter((list) => list.length).length;
+    const count = [...mapped.values()].filter(Boolean).length;
     $("[data-maphead]", right).innerHTML = models.length
       ? `<b>This datasheet covers ${models.length} model${models.length === 1 ? "" : "s"}</b> → map to your parts <span class="n" data-testid="mapped-count">(${count} mapped)</span>`
       : `<b>No model is named in this datasheet</b> → map it to your parts`;
     const body = $("[data-mapbody]", right);
     body.innerHTML = models.map((model, at) => {
-      const list = mapped.get(model);
+      const product = mapped.get(model);
       const readHere = readModels.some((other) => sameModel(other, model));
-      return `<span class="mp${list.length ? " on" : ""}${readHere ? " read" : ""}" data-model="${at}"><span class="model">${esc(model)}</span>${readHere ? `<span class="tag" title="the values were read for this model">values read</span>` : ""}
-        ${list.map((product) => `<span class="to">→ <b>${esc(productTitle(product))}</b><button type="button" class="chip-x" data-unmap="${esc(product)}" aria-label="Unmap ${esc(product)}" title="Unmap">✕</button></span>`).join("")}
-        <button type="button" class="btn sm ghost" data-map data-popper>${list.length ? "+" : "Map →"}</button></span>`;
+      return `<span class="mp${product ? " on" : ""}${readHere ? " read" : ""}" data-model="${at}"><span class="model">${esc(model)}</span>${readHere ? `<span class="tag" title="the values were read for this model">values read</span>` : ""}
+        ${product ? `<span class="to">→ <b>${esc(productTitle(product))}</b><button type="button" class="chip-x" data-unmap aria-label="Unmap ${esc(model)}" title="Unmap">✕</button></span>` : ""}
+        <button type="button" class="btn sm ghost" data-map data-popper>${product ? "Change" : "Map →"}</button></span>`;
     }).join("") + (models.length ? "" : `<button type="button" class="btn sm ghost" data-whole data-popper>Map to a part →</button>`);
     for (const pill of $$("[data-model]", body)) {
       const model = models[Number(pill.dataset.model)];
       $("[data-map]", pill).addEventListener("click", (event) => openMapMenu(event.currentTarget, model));
-      for (const button of $$("[data-unmap]", pill)) {
-        button.addEventListener("click", () => send({ op: "unassign", products: [button.dataset.unmap], value_ids: ["*"], note: `model ${model}` }));
-      }
+      $("[data-unmap]", pill)?.addEventListener("click", () => send({ op: "map", model: mapping().mapName(model), product: null }));
     }
     $("[data-whole]", body)?.addEventListener("click", (event) => openWholeMenu(event.currentTarget));
   }
@@ -504,10 +496,10 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
   async function openMapMenu(anchor, model) {
     const suggested = await suggestions(model);
     const menu = openPop(anchor, `<h4>Map ${esc(model)} to</h4>${suggested.map((product) => `<button type="button" class="pick" data-pick="${esc(product.id)}">${esc(product.title)} <span class="n">${esc(product.provider || "")}</span></button>`).join("")}<div data-psearch></div>
-      <p class="n">${idsForModel(model)[0] === "*" ? "Every value of this datasheet will apply to it." : `The values shared by every model and ${esc(model)}'s own will apply to it.`}</p>`);
+      <p class="n">${esc(model)}'s values will apply to it.</p>`);
     const pick = (id) => {
       closePop();
-      send({ op: "assign", products: [id], value_ids: idsForModel(model), note: `model ${model}` });
+      send({ op: "map", model: mapping().mapName(model), product: id });
     };
     for (const button of $$("[data-pick]", menu)) button.addEventListener("click", () => pick(button.dataset.pick));
     const search = productSearch({ onPick: (product) => pick(product.id), testid: "map-search" });
@@ -568,6 +560,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
     const field = op.field && op.field !== "value" ? `${op.field}: ` : "";
     if (op.op === "edit") return op.field === "grounding" ? "cited a box drawn on the source" : `${field}${formatValue(op.from)} → ${formatValue(op.to)}`;
     if (op.op === "add") return `${op.row.label || op.row.key} ${formatValue(op.row.value)}${op.row.unit ? ` ${op.row.unit}` : ""}${op.row.grounding ? " · box drawn" : " · no source cited"}`;
+    if (op.op === "map") return op.product ? `→ ${productTitle(op.product)}` : "unmapped";
     if (op.op === "assign" || op.op === "unassign") return `${op.op === "assign" ? "→" : "✕"} ${op.products.map(productTitle).join(", ")}`;
     return "";
   }
@@ -576,13 +569,14 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
     $("[data-loghead]", right).innerHTML = `<b>Version log</b> <span class="n" data-testid="log-count">· ${ops.length} change${ops.length === 1 ? "" : "s"} over the AI's values · newest first</span>`;
     const target = (op) => {
       if (op.op === "add") return { id: op.row.id, name: op.row.label || op.row.key };
+      if (op.op === "map") return { id: "", name: `model ${op.model}` };
       if (op.value_ids) return op.value_ids.includes("*") ? { id: "", name: "whole datasheet" } : { id: op.value_ids[0], name: row(op.value_ids[0])?.label || op.value_ids[0] };
       return { id: op.value_id, name: row(op.value_id)?.label || op.value_id };
     };
     const items = ops.slice().reverse().map((op) => {
       const { id, name } = target(op);
       return `<li data-testid="log-item" data-op="${esc(op.op)}" data-jump="${esc(id)}"><code class="t">${esc(moment(op.at))}</code><span class="av hu" title="${esc(op.author)}">${esc(initials(op.author))}</span>
-        <b class="op op-${esc(op.op)}">${esc(op.op)}</b><span class="tg" title="${esc(id)}">${esc(name)}</span><span>${esc(opText(op))}</span>${op.note && !MODEL_NOTE.test(op.note) ? ` <i>“${esc(op.note)}”</i>` : op.note ? ` <span class="n">${esc(op.note)}</span>` : ""}</li>`;
+        <b class="op op-${esc(op.op)}">${esc(op.op)}</b><span class="tg" title="${esc(id)}">${esc(name)}</span><span>${esc(opText(op))}</span>${op.note ? ` <i>“${esc(op.note)}”</i>` : ""}</li>`;
     }).join("");
     const values = data.values;
     const kept = (values?.values || []).filter((value) => value.verdict === "kept").length;

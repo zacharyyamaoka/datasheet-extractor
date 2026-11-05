@@ -52,7 +52,7 @@ KNOWN_URLS = {
 }
 STAGES = ["added", "captured", "converted", "extracted", "published"]
 CAPTURE_LEVELS = ("link", "html", "snapshot", "pdf", "archive")  # Markdownify CONTRACT §2.1, the order capture_keep keeps
-OPS = {"edit", "reject", "restore", "add", "assign", "unassign"}
+OPS = {"edit", "reject", "restore", "add", "assign", "unassign", "map"}
 MEDIA_EXT = {"application/pdf": "pdf", "text/html": "html", "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
 
@@ -95,8 +95,25 @@ def effective(values: dict | None, review: dict) -> dict | None:
     rows = {row["id"]: row for row in doc["values"]}
     for row in rows.values():
         row["products"] = []
+    # §7.1 map: a value read for a model (its part_models; without any, the part's model) follows that model's product
+    part_model = ((doc.get("part") or {}).get("model") or {}).get("value")
+    norm = lambda text: re.sub(r"[^0-9a-z]", "", str(text).lower())  # noqa: E731
+    def read_for(row, model):
+        names = row.get("part_models") or ([part_model] if part_model and not row.get("human") else [])
+        return any(norm(name).startswith(norm(model)) or norm(model).startswith(norm(name)) for name in names)
+    mapped: dict[str, str | None] = {}
     for op in review["ops"]:
         kind = op["op"]
+        if kind == "map":
+            before = mapped.get(op["model"])
+            mapped[op["model"]] = op.get("product")
+            for row in rows.values():
+                if read_for(row, op["model"]):
+                    if before in row["products"]:
+                        row["products"].remove(before)
+                    if op.get("product") and op["product"] not in row["products"]:
+                        row["products"].append(op["product"])
+            continue
         if kind == "add":
             row = dict(op["row"], human=True, products=[])
             doc["values"].append(row)
@@ -142,8 +159,9 @@ class Home:
         out = []
         for path in sorted((REPO / "fields").glob("*.json")):
             rows = json.loads(path.read_text(encoding="utf-8"))
-            out.append({"category": path.stem, "mode": "fields", "fields": len(rows), "keys": [row["key"] for row in rows]})
-        out.append({"category": "psu", "mode": "open", "fields": 0, "keys": [],
+            out.append({"category": path.stem, "mode": "fields", "fields": len(rows), "keys": [row["key"] for row in rows],
+                        "labels": {row["key"]: row["labels"][0] for row in rows if row.get("labels")}})
+        out.append({"category": "psu", "mode": "open", "fields": 0, "keys": [], "labels": {},
                     "note": "open mode: every specification the source states, keyed spec.<printed label>"})
         return out
 
@@ -188,7 +206,7 @@ class Home:
 
     def summary(self, source_id: str) -> dict:
         record = self.source(source_id) or {"id": source_id, "name": "?", "kind": "?", "stage": "failed", "error": "missing"}
-        return {key: record.get(key) for key in ("id", "name", "kind", "stage", "error")}
+        return {key: record.get(key) for key in ("id", "name", "kind", "stage", "running", "error", "note")}
 
     def create_batch(self, files: list[tuple[str, bytes]], urls: list[str], products: list[str], category: str,
                      capture_keep: str) -> dict:
@@ -220,7 +238,7 @@ class Home:
         while self.source_dir(f"pending-{n}").exists():
             n += 1
         record = {"id": f"pending-{n}", "batch": batch_id, "kind": kind, "name": name, "capture_keep": capture_keep,
-                  "stage": "added", "history": [{"stage": "added", "at": now()}]}
+                  "stage": "added", "running": None, "history": [{"stage": "added", "at": now()}]}
         if url:
             record["url"] = url
         self.source_dir(record["id"]).mkdir(parents=True)
@@ -232,9 +250,16 @@ class Home:
             record = self.source(source_id)
             record.update(fields)
             record["stage"] = stage
+            record["running"] = None  # a stage change ends the step that made it (CONTRACT §3)
             record["history"].append({"stage": stage, "at": now()})
             self.save_source(record)
             return record
+
+    def set_running(self, source_id: str, step: str | None) -> None:
+        with self.lock:
+            record = self.source(source_id)
+            record["running"] = step
+            self.save_source(record)
 
     def fail(self, source_id: str, error: str) -> None:
         self.advance(source_id, "failed", error=error)
@@ -256,8 +281,12 @@ class Home:
             return new
 
     def pipeline(self, batch_id: str, source_id: str) -> None:
+        self.set_running(source_id, "capture")
         time.sleep(self.step)
         record = self.source(source_id)
+        if record.get("capture_keep") == "link":  # as the real queue: only the source record, then a stop with a note
+            self.advance(source_id, "captured", note="link only: nothing stored to read")
+            return
         if record["kind"] == "file":
             data = (self.source_dir(source_id) / "upload.bin").read_bytes()
             sha = hashlib.sha256(data).hexdigest()
@@ -274,11 +303,13 @@ class Home:
         (self.source_dir(source_id) / "upload.bin").unlink(missing_ok=True)
         bundle = BUNDLES / sha
         self.advance(source_id, "captured", sha256=sha, bundle=str(bundle))
+        self.set_running(source_id, "convert")
         time.sleep(self.step)
         if not (bundle / "index.json").is_file():
             self.fail(source_id, "stub server: Markdownify has no bundle for these bytes (only canned bundles convert)")
             return
         self.advance(source_id, "converted")
+        self.set_running(source_id, "extract")
         time.sleep(self.step)
         self.extract(source_id)
 
@@ -369,11 +400,12 @@ class Home:
 
 
 def parse_keep(text: str) -> str:
-    """As the real store.parse_keep: Markdownify's levels in its order, html required (values cite its bytes)."""
+    """As the real store.parse_keep: Markdownify's levels in its order, html required (values cite its bytes) unless
+    `link` alone is asked for."""
     chosen = [name.strip() for name in text.split(",") if name.strip()]
     unknown = [name for name in chosen if name not in CAPTURE_LEVELS]
-    if unknown or "html" not in chosen:
-        raise ValueError(f"capture_keep {text!r}: levels are {', '.join(CAPTURE_LEVELS)}, and html is required")
+    if unknown or ("html" not in chosen and chosen != ["link"]):
+        raise ValueError(f"capture_keep {text!r}: levels are {', '.join(CAPTURE_LEVELS)}, html required unless link alone")
     return ",".join(name for name in CAPTURE_LEVELS if name in chosen)
 
 
@@ -477,6 +509,8 @@ def make_handler(home: Home):
                     if action == "review":
                         return self.send(200, home.append_op(source_id, self.json_body()))
                     if action == "extract":
+                        if home.source(source_id).get("capture_keep") == "link":
+                            return self.send(409, {"error": f"source {source_id} is link only: nothing stored to read (capture_keep link)"})
                         category = self.json_body().get("category")
                         if category is not None:
                             if category not in {entry["category"] for entry in home.fields()}:
@@ -487,7 +521,8 @@ def make_handler(home: Home):
                                 home.save_source(record)
                         if not home.source(source_id).get("bundle"):
                             return self.send(200, {"queued": None, "category": category, "note": "category saved; extracts after conversion"})
-                        home.advance(source_id, "converted")
+                        # as the real queue: a re-extraction keeps the stage and says `running: extract` meanwhile
+                        home.set_running(source_id, "extract")
                         threading.Thread(target=lambda: (time.sleep(home.step), home.extract(source_id)), daemon=True).start()
                         return self.send(200, {"started": True})
                     return self.send(200, home.publish(source_id))

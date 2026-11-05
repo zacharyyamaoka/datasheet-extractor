@@ -1,7 +1,7 @@
 // The queue: every batch, newest first, each source with its stage (CONTRACT §3), redrawn on every poll. WHY (Zach,
 // 2026-10-29): an "upload history queue … we can see when they are done".
 
-import { STAGES, api, categories, categoryOptions, esc, $$, moment, toast } from "./util.js";
+import { STAGES, api, categories, categoryOptions, esc, $$, moment, runningText, stopped, toast } from "./util.js";
 
 // A category picked on a row here, until GET /api/batches says which category each source has (its summary carries
 // only {id, name, kind, stage, error}); otherwise a source reads as its batch's.
@@ -15,7 +15,9 @@ function track(source) {
   }
   const reached = STAGES.indexOf(source.stage);
   const steps = STAGES.map((stage, index) => `<span class="step${index < reached ? " done" : ""}${index === reached ? " now" : ""}" title="${stage}"></span>`).join("");
-  return `<span class="track" aria-hidden="true">${steps}</span><span class="stage${reached >= 3 ? " ready" : ""}" data-stage="${esc(source.stage)}">${esc(source.stage)}</span>`;
+  const running = source.running ? `<span class="running" data-testid="running">${esc(runningText(source.running))}</span>`
+    : source.note ? `<span class="running" data-testid="note">${esc(source.note)}</span>` : "";
+  return `<span class="track" aria-hidden="true">${steps}</span><span class="stage${reached >= 3 ? " ready" : ""}" data-stage="${esc(source.stage)}">${esc(source.stage)}</span>${running}`;
 }
 
 export function queueScreen(host, { onOpen, onChanged }) {
@@ -39,7 +41,7 @@ export function queueScreen(host, { onOpen, onChanged }) {
     list.innerHTML = batches.map((batch) => {
       const done = batch.sources.filter((source) => reviewable(source)).length;
       const failed = batch.sources.filter((source) => source.stage === "failed").length;
-      const running = batch.sources.length - done - failed;
+      const running = batch.sources.filter((source) => source.running || !(reviewable(source) || source.stage === "failed" || stopped(source))).length;
       const answer = running ? `${running} of ${batch.sources.length} in progress` : `${done} of ${batch.sources.length} ready to review`;
       const firstReady = batch.sources.find(reviewable);
       return `<article class="batch${batch.id === fresh ? " fresh" : ""}" data-testid="batch" data-batch="${esc(batch.id)}">
@@ -49,7 +51,7 @@ export function queueScreen(host, { onOpen, onChanged }) {
           ${firstReady ? `<button type="button" class="btn sm" data-open="${esc(firstReady.id)}">Review</button>` : ""}</header>
         <ol class="sources">${batch.sources.map((source) => `<li data-testid="queue-source" data-source="${esc(source.id)}" data-stage="${esc(source.stage)}">
           <span class="kind">${esc(source.kind)}</span><span class="name" title="${esc(source.name)}">${esc(source.name)}</span>${track(source)}
-          <span class="sp"></span>${categoryList.length ? `<select class="in sm" data-category="${esc(source.id)}" aria-label="Category of ${esc(source.name)}" title="What to extract; changing it runs the extraction again">${categoryOptions(categoryList, picked.get(source.id) || source.category || batch.category)}</select>` : ""}
+          <span class="sp"></span>${categoryList.length && !stopped(source) ? `<select class="in sm" data-category="${esc(source.id)}" aria-label="Category of ${esc(source.name)}" title="What to extract; changing it runs the extraction again">${categoryOptions(categoryList, picked.get(source.id) || source.category || batch.category)}</select>` : ""}
           ${reviewable(source) ? `<button type="button" class="btn sm ghost" data-open="${esc(source.id)}">Open</button>` : ""}</li>`).join("")}</ol></article>`;
     }).join("");
     for (const button of $$("[data-open]", list)) {
