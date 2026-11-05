@@ -156,7 +156,12 @@ export function moment(iso) {
   if (Number.isNaN(date.getTime())) return "";
   return new Date().toDateString() === date.toDateString() ? clock(iso) : `${day(iso)} ${clock(iso)}`;
 }
-export const initials = (author) => String(author || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
+/** "Zach Yamaoka" → ZY (first and last word); a one-word login ("bam") → BA. */
+export function initials(author) {
+  const words = String(author || "").split(/\s+/).map((word) => word.replace(/[^\p{L}\p{N}]/gu, "")).filter(Boolean);
+  if (words.length > 1) return (words[0][0] + words.at(-1)[0]).toUpperCase();
+  return (words[0] || "?").slice(0, 2).toUpperCase();
+}
 
 // ---- remembered layout ----------------------------------------------------------------------------------------------
 // WHY: every pane boundary drags and is remembered; the log and the mapping step fold — Zach's standing UI rule

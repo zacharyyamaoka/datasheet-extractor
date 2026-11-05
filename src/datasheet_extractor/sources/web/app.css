@@ -221,14 +221,16 @@ textarea.in { height: auto; padding: 6px 8px; resize: vertical; font-family: var
 .pv.hu { color: var(--hu); font-weight: 700; }
 .pv.hu.rj { color: var(--del); }
 .vt td.f { font-weight: 600; }
-.vt td.val { white-space: nowrap; font-weight: 600; cursor: text; }
+/* WHY wrap, not nowrap: open-mode values and raw text run long ("1500ms, 50ms/230VAC …"); one line pushed the
+   columns out of the pane. Wrapping keeps every printed character visible. */
+.vt td.val { font-weight: 600; cursor: text; min-width: 84px; }
 .vt td.val:hover { box-shadow: inset 0 0 0 1px #9cc1d3; }
 .vt td.val .u { color: var(--ink2); font-weight: 400; }
 .vt td.val .hv { color: var(--hu); }
 .vt td.val .was { font-size: 10.5px; color: var(--ink3); font-weight: 400; }
 .vt td.val .struck { text-decoration: line-through; text-decoration-color: var(--del); text-decoration-thickness: 1.5px; color: #8a8a8a; }
 .vt tr.rej td:not(.cb):not(.pvc) { color: #8a8a8a; }
-.vt td.pr { white-space: nowrap; }
+.vt td.pr { max-width: 220px; overflow-wrap: anywhere; }
 .vt td.ap { white-space: nowrap; }
 .vt td.ap .icon-btn, .vt td.x .icon-btn { width: 20px; height: 20px; opacity: .3; }
 .vt tr.r:hover td .icon-btn, .vt tr.r.cur td .icon-btn, .vt tr.r.rej td.x .icon-btn { opacity: 1; }
@@ -249,7 +251,10 @@ textarea.in { height: auto; padding: 6px 8px; resize: vertical; font-family: var
 .ie input.note { flex: 1; min-width: 110px; font-size: 12px; }
 .ie .cite { flex-basis: 100%; font-size: 11.5px; color: var(--hu); }
 .vt td.val .ie { flex-wrap: nowrap; }
-.vt td.val .ie input.note { flex: none; width: 130px; min-width: 0; }
+.vt td.val .ie input.note { flex: none; width: 96px; min-width: 0; }
+.vt td.val .ie input.v { width: 80px; }
+.vt td.val .ie input.u { width: 48px; }
+.vt td.val .ie .btn.sm { padding: 0 6px; }
 .rv-add { padding: 6px 10px; }
 .dropped { margin: 10px 12px 14px; font-size: 11.5px; color: var(--ink3); }
 .dropped summary { cursor: pointer; }

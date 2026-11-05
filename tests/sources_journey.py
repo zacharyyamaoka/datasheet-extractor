@@ -9,11 +9,11 @@
 - the vendored modules still hash to web/vendor/VENDOR.json.
 
     uv run --directory /home/bam/markdownify python /home/bam/datasheet-extractor/tests/sources_journey.py
-        [--server stub|real] [--media]
+        [--server stub|real]
 
 `--server stub` (default) runs tests/sources_journey_stub.py; `--server real` runs `extract serve` in a temp --home.
-The measured results go to reports/media/sources-app/journey-results-<server>.json (excluded from git); `--media`
-also records the hero video and three screenshots there.
+The measured results go to reports/media/sources-app/journey-results-<server>.json (excluded from git). The hero
+video and screenshots are recorded from the real server by tests/sources_journey_media.py.
 Every process it starts is stopped by its own pid.
 """
 
@@ -298,6 +298,9 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
             break
         time.sleep(0.1)
     RESULTS["queue_stages_seen"] = seen
+    stub_errors = disk.home / "stub-errors.log"
+    if stub_errors.exists():
+        RESULTS["stub_errors"] = stub_errors.read_text(encoding="utf-8")[-2000:]
     check(seen[-1:] == ["extracted"] and len(seen) >= 3, "the queue shows the PDF's stages advancing to extracted by polling", seen)
     check(not controls_without_handlers(page, cdp, "queue"), "Queue: every control has its own handler")
     pdf_id = page.evaluate(stage_of, "LRS-350-SPEC.pdf")[1]
@@ -394,6 +397,12 @@ def journey(browser, server: Server, disk: Disk, kind: str) -> None:
     was = page.text_content(f'{row_selector(power["id"])} [data-testid=was]')
     bold = page.evaluate(f"""() => {{ const n = document.querySelector('{row_selector(power["id"])} .pv.hu'); return n ? [n.textContent, getComputedStyle(n).fontWeight] : null; }}""")
     check(was == f"was {power['value']}" and bold and int(bold[1]) >= 600, "an edited row says 'was <AI value>' and bold initials · time", (was, bold))
+    author = disk.ops(source_id)[-1]["author"]
+    words = [word for word in author.split() if word]
+    want = (words[0][0] + words[-1][0]).upper() if len(words) > 1 else author[:2].upper()
+    shown = page.text_content(f'{row_selector(power["id"])} .pv.hu .av')
+    RESULTS["author"] = {"stamped": author, "initials": shown}
+    check(shown == want, "the provenance initials are the stamped author's (git user.name → ZY)", (author, shown))
 
     # j/k, then x strikes; ↺ and ✕ by mouse
     page.click(f'{row_selector(tolerance["id"])} td.f')
@@ -672,67 +681,9 @@ CUBEMARS_HTML = BUNDLE.parent / "04e9b6e63a10d733533f0677b8daa6c8b4f490573a233e4
 CUBEMARS_UPLOAD = {"name": "ak80-9-v3-0-robotic-actuator.html", "mimeType": "text/html", "buffer": CUBEMARS_HTML.read_bytes()} if CUBEMARS_HTML.exists() else None
 
 
-# ---- the hero video and screenshots -------------------------------------------------------------------------------
-
-def hero(browser, server: Server) -> None:
-    MEDIA.mkdir(parents=True, exist_ok=True)
-    video_dir = pathlib.Path(tempfile.mkdtemp(prefix="sources-hero-"))
-    size = {"width": 1280, "height": 800}
-    context = browser.new_context(viewport=size, record_video_dir=str(video_dir), record_video_size=size)
-    page = context.new_page()
-    started = time.monotonic()
-    page.goto(server.url + "#/add")
-    page.wait_for_selector("[data-testid=category] option", state="attached")
-    page.wait_for_timeout(600)
-    page.set_input_files("[data-testid=file-input]", UPLOAD)
-    page.wait_for_timeout(400)
-    page.click("[data-testid=urls]")
-    page.keyboard.type(CUBEMARS_URL, delay=4)
-    page.wait_for_timeout(500)
-    page.screenshot(path=str(MEDIA / "1-add-sources.png"))
-    page.click("[data-testid=submit]")
-    page.wait_for_selector("[data-testid=queue] [data-testid=batch]")
-    page.wait_for_function("""() => [...document.querySelectorAll('[data-testid=queue-source]')].some((n) => n.dataset.stage === 'extracted')""", timeout=30000)
-    page.wait_for_timeout(900)
-    page.screenshot(path=str(MEDIA / "2-queue.png"))
-    page.click("[data-testid=queue-source][data-stage=extracted] [data-open]")
-    wait_ready(page)
-    page.wait_for_timeout(700)
-    power = page.evaluate("() => [...document.querySelectorAll('tr.r')].find((n) => n.querySelector('td.f').textContent === 'Rated power').dataset.id")
-    page.click(f"{row_selector(power)} td.f")
-    page.wait_for_timeout(1300)
-    page.click(f"{row_selector(power)} [data-testid=value]")
-    page.wait_for_timeout(300)
-    page.keyboard.type("350", delay=120)
-    page.wait_for_timeout(250)
-    page.keyboard.press("Enter")
-    page.wait_for_timeout(1100)
-    tolerance = page.evaluate("() => [...document.querySelectorAll('tr.r')].find((n) => n.querySelector('td.f').textContent === 'Voltage tolerance').dataset.id")
-    page.click(f"{row_selector(tolerance)} td.f")
-    page.wait_for_timeout(700)
-    page.keyboard.press("x")
-    page.wait_for_function("() => document.querySelectorAll('[data-testid=log-item]').length === 2")
-    page.wait_for_timeout(400)
-    page.hover("[data-testid=log] li[data-op=reject]")
-    page.wait_for_timeout(1500)
-    page.screenshot(path=str(MEDIA / "3-review.png"))
-    RESULTS["hero_seconds"] = round(time.monotonic() - started, 1)
-    video = page.video.path()
-    context.close()
-    webm = MEDIA / "hero.webm"
-    shutil.move(video, webm)
-    shutil.rmtree(video_dir, ignore_errors=True)
-    ffmpeg = shutil.which("ffmpeg")
-    if ffmpeg:
-        subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(webm), "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                        "-movflags", "+faststart", str(MEDIA / "hero.mp4")], check=False)
-    print(f"media: {MEDIA}", flush=True)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--server", choices=["stub", "real"], default="stub")
-    parser.add_argument("--media", action="store_true")
     parser.add_argument("--step", type=float, default=0.8, help="stub: seconds per simulated stage")
     args = parser.parse_args()
     vendor_hashes()
@@ -744,14 +695,6 @@ def main() -> int:
             browser = playwright.chromium.launch()
             try:
                 journey(browser, server, Disk(home), args.server)
-                if args.media:  # a fresh home, so the hero's log starts empty
-                    hero_home = pathlib.Path(tempfile.mkdtemp(prefix="sources-hero-home-"))
-                    hero_server = Server(args.server, hero_home, args.step)
-                    try:
-                        hero(browser, hero_server)
-                    finally:
-                        hero_server.stop()
-                        shutil.rmtree(hero_home, ignore_errors=True)
             finally:
                 browser.close()
     finally:

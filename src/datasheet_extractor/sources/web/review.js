@@ -624,7 +624,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
     const before = cell.innerHTML;
     cell.innerHTML = `<div class="ie" data-testid="editor"><input class="v" aria-label="Value" data-testid="edit-value" value="${esc(typed ?? (value.value == null ? "" : formatValue(value.value)))}">
       <input class="u" aria-label="Unit" data-testid="edit-unit" placeholder="unit" value="${esc(value.unit ?? "")}"><input class="note" aria-label="Note" placeholder="note (optional)" data-testid="edit-note">
-      <button type="button" class="btn sm" data-save>Save</button><button type="button" class="btn sm ghost" data-cancel>Cancel</button></div>`;
+      <button type="button" class="btn sm" data-save title="Save (Enter)" aria-label="Save">✓</button><button type="button" class="btn sm ghost" data-cancel title="Cancel (Esc)" aria-label="Cancel">✕</button></div>`;
     const box = $(".ie", cell);
     const [valueInput, unitInput, noteInput] = $$("input", box);
     let done = false;
@@ -670,6 +670,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
       if (!box.contains(event.relatedTarget)) setTimeout(() => { if (!done && !box.contains(document.activeElement)) close(true); }, 0);
     });
     valueInput.focus({ preventScroll: true });
+    $(".rv-scroll", right).scrollLeft = 0; // the wider editor must not slide the provenance and field columns away
     if (typed != null) valueInput.setSelectionRange(valueInput.value.length, valueInput.value.length);
     else valueInput.select();
   }

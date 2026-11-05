@@ -4,8 +4,10 @@
 import { STAGES, api, categories, categoryOptions, esc, $$, moment, runningText, stopped, toast } from "./util.js";
 
 // A category picked on a row here, until GET /api/batches says which category each source has (its summary carries
-// only {id, name, kind, stage, error}); otherwise a source reads as its batch's.
+// no category); otherwise a source reads as its batch's. WHY keyed by batch and position: a source's id changes from
+// pending-<n> to its sha256 prefix once captured, and the pick must survive that.
 const picked = new Map();
+const pickKey = (batch, index) => `${batch.id}#${index}`;
 
 const reviewable = (source) => source.stage === "extracted" || source.stage === "published";
 
@@ -49,9 +51,9 @@ export function queueScreen(host, { onOpen, onChanged }) {
           <span class="answer${running ? "" : " ok"}" data-testid="batch-answer">${esc(answer)}${failed ? ` · <span class="bad">${failed} failed</span>` : ""}</span>
           <span class="sp"></span><span class="n">${esc(batch.category || "")}${batch.products?.length ? ` · ${batch.products.length} product${batch.products.length === 1 ? "" : "s"}` : ""}</span>
           ${firstReady ? `<button type="button" class="btn sm" data-open="${esc(firstReady.id)}">Review</button>` : ""}</header>
-        <ol class="sources">${batch.sources.map((source) => `<li data-testid="queue-source" data-source="${esc(source.id)}" data-stage="${esc(source.stage)}">
+        <ol class="sources">${batch.sources.map((source, index) => `<li data-testid="queue-source" data-source="${esc(source.id)}" data-stage="${esc(source.stage)}">
           <span class="kind">${esc(source.kind)}</span><span class="name" title="${esc(source.name)}">${esc(source.name)}</span>${track(source)}
-          <span class="sp"></span>${categoryList.length && !stopped(source) ? `<select class="in sm" data-category="${esc(source.id)}" aria-label="Category of ${esc(source.name)}" title="What to extract; changing it runs the extraction again">${categoryOptions(categoryList, picked.get(source.id) || source.category || batch.category)}</select>` : ""}
+          <span class="sp"></span>${categoryList.length && !stopped(source) ? `<select class="in sm" data-category="${esc(source.id)}" data-pick="${esc(pickKey(batch, index))}" aria-label="Category of ${esc(source.name)}" title="What to extract; changing it runs the extraction again">${categoryOptions(categoryList, picked.get(pickKey(batch, index)) || source.category || batch.category)}</select>` : ""}
           ${reviewable(source) ? `<button type="button" class="btn sm ghost" data-open="${esc(source.id)}">Open</button>` : ""}</li>`).join("")}</ol></article>`;
     }).join("");
     for (const button of $$("[data-open]", list)) {
@@ -62,7 +64,7 @@ export function queueScreen(host, { onOpen, onChanged }) {
         const id = select.dataset.category;
         try {
           const result = await api.extract(id, { category: select.value });
-          picked.set(id, select.value);
+          picked.set(select.dataset.pick, select.value);
           toast(result?.queued ? `Extracting again as ${select.value}` : `Category set to ${select.value}; it extracts after conversion`);
           select.blur();
           onChanged?.();

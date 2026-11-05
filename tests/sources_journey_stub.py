@@ -21,7 +21,6 @@ import copy
 import datetime
 import email.parser
 import email.policy
-import getpass
 import hashlib
 import json
 import os
@@ -31,12 +30,14 @@ import shutil
 import sys
 import threading
 import time
+import traceback
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
+from datasheet_extractor.sources.server import author_of  # noqa: E402 - the real server's author, so the two can't drift
 from datasheet_extractor.values import _place, assign_ids  # noqa: E402
 
 WEB = REPO / "src" / "datasheet_extractor" / "sources" / "web"
@@ -230,7 +231,7 @@ class Home:
                      "sources": ids}
             write(self.root / "batches" / batch_id / "batch.json", batch)
         for job in jobs:
-            threading.Thread(target=self.pipeline, args=(batch_id, job), daemon=True).start()
+            threading.Thread(target=self.logged, args=(self.pipeline, batch_id, job), daemon=True).start()
         return dict(batch, sources=[self.summary(i) for i in ids])
 
     def new_source(self, batch_id, kind, name, url, capture_keep) -> dict:
@@ -279,6 +280,14 @@ class Home:
             record["id"] = new
             self.save_source(record)
             return new
+
+    def logged(self, step, *args) -> None:
+        """Run a pipeline thread; an exception is written to <home>/stub-errors.log, not lost with the thread."""
+        try:
+            step(*args)
+        except Exception:  # noqa: BLE001 - recorded for whoever reads a stalled queue
+            with (self.root / "stub-errors.log").open("a", encoding="utf-8") as log:
+                log.write(f"{now()} {step.__name__}{args}\n{traceback.format_exc()}\n")
 
     def pipeline(self, batch_id: str, source_id: str) -> None:
         self.set_running(source_id, "capture")
@@ -344,7 +353,7 @@ class Home:
         with self.lock:
             review = self.review(source_id)
             stamped = {key: value for key, value in op.items() if key not in ("author", "at")}
-            stamped.update(author=getpass.getuser(), at=now())
+            stamped.update(author=author_of(self.root), at=now())
             review["ops"].append(stamped)
             write(self.source_dir(source_id) / "review.json", review)
             return review
