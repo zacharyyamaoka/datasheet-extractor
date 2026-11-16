@@ -50,6 +50,21 @@ UNIT_FORMS: dict[str, str] = {
 }
 DIAMETER_MARKS = "ΦφФф⌀Øø"
 
+# A table cell that is only a unit ('V', 'N.M', 'N.M/A', 'rpm/v', 'arcmin', 'Pairs', 'kg·cm²', 'mH'), or the '/' a
+# unit column prints for 'no unit'. WHY a shape and not UNIT_FORMS: UNIT_FORMS lists the units the consumer's fields
+# take; a spec table's unit column also carries units no field asks for ('A', 'mH', 'dB', 'Pairs'), and every one of
+# them must be known as a unit, or it is read as a label (SteadyWin's 'label | unit | value' rows). A short symbol's
+# case matters ('Mass', 'Max', 'As' are no units); a unit word ('RPM', 'Pairs', 'Bit') reads in any case, and only a
+# listed one is a unit.
+_UNIT_ATOM = (r"(?:[nµμmkMGcd]?(?:N[·.*•]?[mM]|[NmgVvAWΩsH]|Hz|Ah|Wh|dB)|(?i:rpm|r/min|bits?|pairs|pcs|arcmin|arcsec|"
+              r"ohms?|rad|deg|hz)|°C|℃|°|%)(?:\^?-?\d|[²³])?")
+UNIT_CELL = re.compile(rf"^(?:[/\-–—]|\(?{_UNIT_ATOM}(?:\s*[·./*⋅]\s*{_UNIT_ATOM})*\)?)$")
+
+
+def unit_only(text: str) -> bool:
+    """The cell's text is only a unit (or '/', '-', 'no unit'), never a label."""
+    return bool(UNIT_CELL.match(text.strip()))
+
 
 def label_pattern(label: str) -> str:
     """One plain label as a tolerant, case-insensitive pattern (see the module docstring)."""

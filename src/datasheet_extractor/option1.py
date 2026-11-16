@@ -35,7 +35,7 @@ import subprocess
 import time
 
 from . import bind
-from .fields import Field, by_key, label_found, unit_found
+from .fields import Field, by_key, label_found, unit_found, unit_only
 from .values import Verdict, cross_check, normal, parse_value, squash, value_problems
 
 MARKDOWNIFY = pathlib.Path("/home/bam/markdownify")
@@ -187,17 +187,40 @@ class Grid:
 
     def _label_like(self, cell) -> bool:
         text = self.texts[cell["id"]]
-        return bool(text) and not is_value_cell(text)
+        return bool(text) and not is_value_cell(text) and not unit_only(text)
 
     def own_label(self, cell: dict) -> str | None:
         """The nearest label-like cell to the left of `cell` in its row: its row label ('Weight g' in a two-pair
-        row 'Weight g | 140 | Insulation Class | F', never the row's first label 'Size mm')."""
+        row 'Weight g | 140 | Insulation Class | F', never the row's first label 'Size mm').
+        WHY a cell that is only a unit is no label (SteadyWin's GIM4305-10: 'Nominal Voltage | V | 24 | 24'): a unit
+        column sits between the label and the value, and the nearest non-value cell was the unit, so every row of the
+        page read 'V', 'N.M', 'RPM' as its label and the checker dropped all of them. Only a unit is skipped, never a
+        word: 'Noise' in 'Weight g | 140 | Noise | 60' still ends the walk, so the 60 is not the weight."""
         row, col = cell["row"], cell["col"]
         for c in range(col - 1, -1, -1):
             other = self.at.get((row, c))
             if other and other is not cell and self._label_like(other):
                 return self.texts[other["id"]]
         return None
+
+    def own_units(self, cell: dict) -> list[str]:
+        """The unit cells of `cell`'s row that print its unit: those between it and its label on the left ('label |
+        unit | value'), and the one right after it ('label | value | unit'). Whatever they print is read, not
+        trusted: the unit must still be one of the field's and match what the cell says."""
+        row, col = cell["row"], cell["col"]
+        units = []
+        for c in range(col - 1, -1, -1):
+            other = self.at.get((row, c))
+            if other is None or other is cell:
+                continue
+            if self._label_like(other):
+                break
+            if unit_only(self.texts[other["id"]]):
+                units.append(self.texts[other["id"]])
+        after = self.at.get((row, col + cell.get("colspan", 1)))
+        if after is not None and unit_only(self.texts[after["id"]]):
+            units.append(self.texts[after["id"]])
+        return units
 
     def row_headers(self, cell: dict) -> list[str]:
         """Every row header of `cell`, read from the grid: its row's header columns and its own label. The model
@@ -362,7 +385,10 @@ def check_value(row: dict, fields: dict[str, Field], bundle: Bundle, part_model:
             reasons.append(f"neither the row label {own_label!r} nor the column header "
                            f"{' / '.join(col_texts)!r} carries one of {key!r}'s labels")
             return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
-        reasons += _cell_value_problems(field, value, unit, condition, raw, label_text)
+        # WHY the unit cells of the row and the column headers too: the unit sits in its own column ('N.M' between
+        # 'Stall Torque' and '3.82'), after the value, or in a header row of its own, not always in the label.
+        reasons += _cell_value_problems(field, value, unit, condition, raw,
+                                        " ".join([label_text] + grid.own_units(block) + col_texts))
         for model_axis, model_texts in model_axes:
             if len(grid.designations(model_axis)) < 2:
                 continue

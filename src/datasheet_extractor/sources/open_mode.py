@@ -140,7 +140,8 @@ def check_value(row: dict, bundle: option1.Bundle, part_model: str | None, grids
             reasons.append(f"the label {label!r} is neither the row label {own_label!r} nor the column header "
                            f"{' / '.join(col_texts)!r}")
             return Verdict(key, value, unit, raw, condition, cite, grounding, reasons, row)
-        if unit and not _named(unit, [raw] + label_texts):
+        # WHY the unit column and the column headers too: as option1.check_value, the unit may sit in its own cell
+        if unit and not _named(unit, [raw] + label_texts + grid.own_units(block) + col_texts):
             reasons.append(f"the unit {unit!r} is printed neither in raw {raw!r} nor in its header")
         if part_model and option1.model_named(part_model, list(grid.texts.values())):
             # WHY beside the designation rule: Grid's designations miss 'LRS-350-24' (a digit after the dash), so

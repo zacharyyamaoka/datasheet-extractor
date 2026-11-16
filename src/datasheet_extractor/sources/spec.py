@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import json
 import math
+import pathlib
 import re
+import tomllib
 from urllib.parse import urlsplit
 
 from .effective import publishable
@@ -60,12 +62,58 @@ def _alnum(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", (text or "").lower())
 
 
-def source_kind(source_url: str | None, manufacturer: str | None) -> tuple[str, bool]:
-    """(`manufacturer` | `retailer`, assumed). The app knows the maker only as the name the datasheet printed
-    (values.json `part.manufacturer`): a web source whose host carries that name (or a word of it) is the maker's page,
-    any other host a retailer. With no maker name, or a saved file with no host, it says `manufacturer` and `assumed`."""
+# robotparts' registry of each maker's own web domains, read at every call (never copied: a domain Zach adds there
+# counts at the next Copy as Spec). WHY: a part file's `source_kind="manufacturer"` must cite one of its maker's
+# domains (robotparts SCHEMA2.md §2), so that file, not a guess from the printed maker name, is the judge.
+MAKERS_TOML = pathlib.Path("/home/bam/robotparts/makers.toml")
+# Shops that sell other makers' parts: a page there is a `retailer` page, unless the maker printed on it is the shop
+# itself (makers.toml lists StepperOnline's own domain: its own gearbox there is its own page).
+SHOPS = ("aifitlab.com", "alibaba.com", "aliexpress.com", "omc-stepperonline.com")
+
+
+def load_makers(path: pathlib.Path | None = None) -> dict[str, dict]:
+    """{maker slug: {name, domains}} from makers.toml, or {} when the file is missing or unreadable."""
+    try:
+        with open(path or MAKERS_TOML, "rb") as handle:
+            table = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    return {slug: {"name": entry.get("name") or slug, "domains": [str(d).lower() for d in entry.get("domains") or []]}
+            for slug, entry in table.items() if isinstance(entry, dict)}
+
+
+def _on(host: str, domain: str) -> bool:
+    return host == domain or host.endswith("." + domain)
+
+
+def _is_maker(printed: str | None, slug: str, maker: dict) -> bool:
+    """The maker name the datasheet printed is this registry maker (by slug or name), whole words aside."""
+    name = _alnum(printed or "")
+    return len(name) >= 3 and any(len(own) >= 3 and (own in name or name in own)
+                                  for own in (_alnum(slug), _alnum(maker["name"])))
+
+
+def source_kind(source_url: str | None, manufacturer: str | None,
+                makers: dict[str, dict] | None = None) -> tuple[str, bool]:
+    """(`manufacturer` | `retailer`, assumed). In order:
+    1. a web host on a shop (SHOPS) is a `retailer`, unless the maker the datasheet printed is the maker that owns that
+       domain in makers.toml (StepperOnline's own gearbox on omc-stepperonline.com);
+    2. a host on any maker's domain in makers.toml is `manufacturer`;
+    3. else the app knows the maker only as the name the datasheet printed (values.json `part.manufacturer`): a host
+       that carries that name (or a word of it) is the maker's page, any other host a retailer;
+    4. with no maker name, or a saved file with no host, it says `manufacturer` and `assumed`.
+    `makers` is the registry (`load_makers`); None reads makers.toml now, and a missing file is no maker at all."""
     host = urlsplit(source_url or "").hostname if (source_url or "").startswith(("http://", "https://")) else None
-    if not host or not _alnum(manufacturer or ""):
+    host = host.lower() if host else None
+    if not host:
+        return "manufacturer", True
+    registry = load_makers() if makers is None else makers
+    owner = next(((slug, maker) for slug, maker in registry.items() if any(_on(host, d) for d in maker["domains"])), None)
+    if any(_on(host, shop) for shop in SHOPS):
+        return ("manufacturer" if owner and _is_maker(manufacturer, *owner) else "retailer"), False
+    if owner:
+        return "manufacturer", False
+    if not _alnum(manufacturer or ""):
         return "manufacturer", True
     name, words = _alnum(manufacturer), [_alnum(word) for word in re.split(r"\W+", manufacturer)]
     mine = name in _alnum(host) or any(len(word) >= 4 and word in _alnum(host) for word in words)
@@ -104,7 +152,8 @@ def _column_names(rows: list[dict]) -> dict[str, str]:
 
 
 def as_spec(rows: list[dict], *, source_url: str | None, sha256: str | None, retrieved_at: str | None = None,
-            manufacturer: str | None = None, paged: bool = False, texts: dict[str, str] | None = None) -> str:
+            manufacturer: str | None = None, paged: bool = False, texts: dict[str, str] | None = None,
+            makers: dict[str, dict] | None = None) -> str:
     """One `    "key": Spec(value, "unit", source_url=…, source_kind=…, raw=…, quote=…, page=…, note=…),` line per
     row, ready to paste inside `specs={...}`; "" when there are no rows.
 
@@ -114,12 +163,12 @@ def as_spec(rows: list[dict], *, source_url: str | None, sha256: str | None, ret
       a table, i.e. a variant table), the row's condition, a reviewer's note, then `captured <day> sha256 <12 hex>`.
     - a key given twice keeps its first line; later ones are commented out, since a dict literal would drop them
       silently.
-    - `source_kind` is `manufacturer` or `retailer` (`source_kind`); when it had to assume `manufacturer`, the block
-      starts with a `# TODO` comment saying so.
+    - `source_kind` is `manufacturer` or `retailer` (`source_kind`, judged by robotparts' makers.toml, or `makers`);
+      when it had to assume `manufacturer`, the block starts with a `# TODO` comment saying so.
     """
     if not rows:
         return ""
-    kind, assumed = source_kind(source_url, manufacturer)
+    kind, assumed = source_kind(source_url, manufacturer, makers)
     names = _column_names(rows)
     captured = " ".join(part for part in (f"captured {retrieved_at[:10]}" if retrieved_at else "",
                                           f"sha256 {sha256[:12]}" if sha256 else "") if part)

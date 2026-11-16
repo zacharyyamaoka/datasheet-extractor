@@ -152,10 +152,91 @@ def test_source_kind_is_manufacturer_on_the_makers_host_and_retailer_elsewhere()
 
 
 def test_source_kind_is_a_todo_when_the_maker_or_the_url_is_unknown():
-    for options in ({"manufacturer": None}, {"source_url": "file:///tmp/sheet.pdf"}):
+    # WHY example.com and not the maker's own host: a host on a makers.toml domain is no longer a guess
+    for options in ({"manufacturer": None, "source_url": "https://example.com/gim4305"},
+                    {"source_url": "file:///tmp/sheet.pdf"}):
         block = _block(**options)
         assert _kwargs(_entries(block)["mass"])["source_kind"] == "manufacturer"
         assert block.splitlines()[0].lstrip().startswith("# TODO") and "source_kind" in block.splitlines()[0]
+
+
+MAKERS = """
+[steadywin]
+name = "SteadyWin"
+domains = ["steadywin.cn", "14180476.s21i.faiusr.com"]
+
+[stepperonline]
+name = "StepperOnline (OMC Corporation)"
+domains = ["omc-stepperonline.com"]
+
+[cubemars]
+name = "CubeMars"
+domains = ["cubemars.com"]
+"""
+
+
+@pytest.fixture
+def makers_toml(tmp_path, monkeypatch):
+    path = tmp_path / "makers.toml"
+    path.write_text(MAKERS, encoding="utf-8")
+    monkeypatch.setattr(spec_module, "MAKERS_TOML", path)
+    return path
+
+
+def _kind(source_url, manufacturer=None):
+    block = _block(source_url=source_url, manufacturer=manufacturer)
+    return _kwargs(_entries(block)["mass"])["source_kind"], block.lstrip().startswith("# TODO")
+
+
+def test_a_host_on_a_makers_domain_is_the_manufacturer_even_with_no_maker_named(makers_toml):
+    # the GIM4305-10 page names no maker in a block the extractor can cite: the domain alone says it
+    assert _kind("https://www.steadywin.cn/en/h-pd-9.html") == ("manufacturer", False)
+    assert _kind("https://14180476.s21i.faiusr.com/x.pdf") == ("manufacturer", False)
+    assert _kind("https://www.cubemars.com/goods.php?id=1", "Some Other Name") == ("manufacturer", False)
+    assert _kind("https://notsteadywin.cn/") == ("manufacturer", True)         # a sibling host is not a subdomain
+
+
+def test_a_known_shop_is_a_retailer_unless_the_maker_printed_is_the_shop(makers_toml):
+    for shop in ("https://aifitlab.com/p/gim4305", "https://www.alibaba.com/product-detail/x.html",
+                 "https://www.aliexpress.com/item/1.html"):
+        assert _kind(shop) == ("retailer", False), shop
+        assert _kind(shop, "SteadyWin") == ("retailer", False), shop
+    stepper = "https://www.omc-stepperonline.com/gearbox/ad60-g10"
+    assert _kind(stepper) == ("retailer", False)
+    assert _kind(stepper, "SteadyWin") == ("retailer", False)
+    assert _kind(stepper, "StepperOnline") == ("manufacturer", False)
+    assert _kind(stepper, "OMC Corporation") == ("manufacturer", False)
+
+
+def test_an_unlisted_host_keeps_the_name_guess_and_the_todo(makers_toml):
+    assert _kind("https://example.com/sheet", None) == ("manufacturer", True)
+    assert _kind("https://example.com/sheet", "SteadyWin") == ("retailer", False)
+    assert _kind("https://www.steadywin.example/sheet", "SteadyWin") == ("manufacturer", False)
+
+
+def test_a_missing_or_broken_makers_file_falls_back_to_the_name_guess(tmp_path, monkeypatch):
+    monkeypatch.setattr(spec_module, "MAKERS_TOML", tmp_path / "nowhere.toml")
+    assert _kind("https://www.steadywin.cn/en/h-pd-9.html", "SteadyWin") == ("manufacturer", False)
+    assert _kind("https://www.steadywin.cn/en/h-pd-9.html") == ("manufacturer", True)
+    assert _kind("https://aifitlab.com/p/x", "SteadyWin") == ("retailer", False)
+    broken = tmp_path / "broken.toml"
+    broken.write_text("[steadywin\ndomains = ", encoding="utf-8")
+    monkeypatch.setattr(spec_module, "MAKERS_TOML", broken)
+    assert _kind("https://www.steadywin.cn/en/h-pd-9.html") == ("manufacturer", True)
+
+
+def test_makers_toml_is_read_at_every_call_not_copied(makers_toml):
+    assert _kind("https://www.example-maker.com/x") == ("manufacturer", True)
+    makers_toml.write_text(MAKERS + '\n[example]\nname = "Example"\ndomains = ["example-maker.com"]\n', encoding="utf-8")
+    assert _kind("https://www.example-maker.com/x") == ("manufacturer", False)
+
+
+@needs_robotparts
+def test_the_real_robotparts_registry_knows_steadywin_and_the_shops():
+    assert spec_module.MAKERS_TOML == pathlib.Path("/home/bam/robotparts/makers.toml")
+    if spec_module.MAKERS_TOML.is_file():
+        assert _kind("https://www.steadywin.cn/en/h-pd-9.html") == ("manufacturer", False)
+        assert _kind("https://aifitlab.com/p/x") == ("retailer", False)
 
 
 def test_a_repeated_key_keeps_the_first_and_comments_out_the_rest():
