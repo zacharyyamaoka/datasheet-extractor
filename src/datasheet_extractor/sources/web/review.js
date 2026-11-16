@@ -116,6 +116,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
     const retrieved = data.values?.source?.retrieved_at;
     const sha = source.sha256 || data.values?.source?.sha256;
     const assigned = rows.some((value) => value.products.length && !value.rejected);
+    const kept = rows.some((value) => !value.rejected);
     const extracted = Boolean(data.values);
     // WHY no extraction controls on a link-only source: nothing was stored to read, and POST …/extract answers 409.
     const linkOnly = source.capture_keep === "link";
@@ -127,6 +128,7 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
         <select class="in" data-testid="source-category">${categoryOptions(categoryList, source.category || batch?.category)}</select></label>`}
       <button type="button" class="btn ghost" data-testid="copy-prompt" title="A prompt any AI agent can run to extract this source">Copy prompt</button>
       ${linkOnly ? "" : `<button type="button" class="btn ghost" data-testid="run-extraction" ${source.bundle ? "" : "disabled title=\"not converted yet\""}>Run extraction</button>`}
+      <button type="button" class="btn ghost" data-testid="copy-spec" ${kept ? "title=\"The kept rows as Spec(...) lines, ready to paste into a robotparts part file\"" : "disabled title=\"no rows are kept\""}>Copy as Spec</button>
       <button type="button" class="btn pri" data-testid="publish" ${assigned ? "" : "disabled title=\"assign a product first\""}>Publish</button>`;
     for (const button of $$("[data-view]", head)) {
       button.addEventListener("click", () => {
@@ -166,6 +168,17 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
         watch();
       } catch (error) {
         toast(`Could not start: ${error.message}`, "error");
+      }
+    });
+    // WHY the server builds the text (sources/spec.py): the CLI `extract as-spec` prints the very same block, and the
+    // part file Zach pastes it into is the source of truth, so the app stops at paste-ready lines.
+    $("[data-testid=copy-spec]", head).addEventListener("click", async () => {
+      try {
+        const { text, count } = await api.spec(sourceId);
+        if (!count) return toast("No rows are kept", "error");
+        await copyText(text, "Specs", `Copied ${count} spec${count === 1 ? "" : "s"}`);
+      } catch (error) {
+        toast(`No specs: ${error.message}`, "error");
       }
     });
     $("[data-testid=publish]", head).addEventListener("click", async () => {

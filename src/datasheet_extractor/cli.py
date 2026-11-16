@@ -12,6 +12,7 @@ left out.
 DIR/llm/ keeps the call's prompt, schema, argv, raw events.jsonl and the parsed output.
 
 `extract serve [--port 0] [--home DIR] [--products …]` runs the Sources app instead (CONTRACT.md; sources/server.py).
+`extract as-spec <source id> [--home DIR] [--product ID]` prints a source's kept rows as paste-ready `Spec(...)` lines.
 """
 
 from __future__ import annotations
@@ -82,11 +83,46 @@ def extract(source: pathlib.Path, fields_path: pathlib.Path, option: int, backen
     return run
 
 
+def as_spec_main(argv: list[str]) -> int:
+    """`extract as-spec <source id> [--home DIR] [--product ID] [--products SPEC]`: the Copy as Spec block on stdout (the
+    same text the Sources app's button copies), for an agent or a pipe. Exit 1 with the reason on stderr when there is
+    no such source or nothing is kept."""
+    from .sources.server import ApiError, App
+    from .sources.store import default_home
+    parser = argparse.ArgumentParser(prog="extract as-spec", description="A source's kept rows (not rejected, kept by "
+                                     "the checker, or added by hand) as `\"key\": Spec(...)` lines to paste inside a "
+                                     "robotparts part file's `specs={...}`.")
+    parser.add_argument("source", help="the source id (first 12 hex of its sha256)")
+    parser.add_argument("--home", type=pathlib.Path, default=default_home(),
+                        help="the Sources app's state (default: $DATASHEET_EXTRACTOR_HOME or "
+                        "~/.local/share/datasheet-extractor/)")
+    parser.add_argument("--product", help="only the rows assigned to this product id")
+    parser.add_argument("--products", help="robotparts:<repo> | file:<path>/products.json, as for `extract serve`")
+    arguments = parser.parse_args(argv)
+    try:
+        app = App(arguments.home, arguments.products)
+        answer = app.as_spec(arguments.source, arguments.product)
+    except (ApiError, ValueError) as error:
+        print(f"extract as-spec: {error}", file=sys.stderr)
+        if isinstance(error, ApiError) and error.status == 404:
+            known = [source["id"] for source in app.store.sources()]
+            print(f"  sources in {arguments.home}: {', '.join(known) or 'none'}", file=sys.stderr)
+        return 1
+    if not answer["count"]:
+        print(f"extract as-spec: no kept rows in source {arguments.source}"
+              + (f" for product {arguments.product}" if arguments.product else ""), file=sys.stderr)
+        return 1
+    sys.stdout.write(answer["text"])
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "serve":
         from .sources import server
         return server.main(argv[1:])
+    if argv and argv[0] == "as-spec":
+        return as_spec_main(argv[1:])
     parser = argparse.ArgumentParser(prog="extract", description="A datasheet and a field list in, checked values "
                                      "out (Markdownify CONTRACT §7).")
     parser.add_argument("source", type=pathlib.Path, help="a local PDF, PNG/JPEG or HTML file")

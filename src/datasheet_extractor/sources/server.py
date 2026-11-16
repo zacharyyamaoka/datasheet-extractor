@@ -15,6 +15,7 @@ opens no browser window. WHY: Zach's no-focus-steal rule — a tool never fronts
     POST /api/sources/<id>/extract {model?, category?}   sets the source's category, (re)runs extraction
     GET  /api/sources/<id>/prompt          text/plain: the prompt for any AI agent
     POST /api/sources/<id>/publish         published/<product>/<source>.json for every assigned product
+    GET  /api/sources/<id>/spec[?product=] {text, count}: the kept rows as paste-ready Spec(...) lines (Copy as Spec)
 """
 
 from __future__ import annotations
@@ -32,10 +33,11 @@ import re
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import effective as effective_module
-from . import extraction, jobs, prompt as prompt_module
+from . import extraction, jobs, prompt as prompt_module, spec as spec_module
+from .. import option1
 from .products import Catalog
 from .store import Store, default_home, now, parse_keep, read_json
 
@@ -281,6 +283,33 @@ class App:
         return {"source": source, "published": [str(path) for path in paths]}
 
 
+    def as_spec(self, source_id: str, product: str | None = None) -> dict:
+        """{text, count}: the source's kept rows (of one product, when given) as `Spec(...)` dict entries (spec.py)."""
+        source = self.source(source_id)
+        values = self.store.values(source["id"])
+        if values is None:
+            raise ApiError(409, f"source {source['id']} has no values.json yet (stage {source['stage']})")
+        if product is not None and self.catalog.get(product) is None:
+            raise ApiError(400, f"unknown product {product!r}")
+        record = effective_module.effective(values, self.store.review(source["id"]), self.store.extracted_at(source))
+        rows = spec_module.kept_rows(record, product)
+        made = values.get("source") or {}
+        bundle = pathlib.Path(source.get("bundle") or "")
+        media = (read_json(bundle / "source.json", {}) or {}).get("media_type") or ""
+        texts = {}
+        try:
+            loaded = option1.Bundle.load(bundle)
+            texts = {row["cite"]["id"]: loaded.printed(loaded.blocks[row["cite"]["id"]]) for row in rows
+                     if (row.get("cite") or {}).get("id") in loaded.blocks}
+        except (OSError, ValueError, KeyError):
+            pass                                  # no readable bundle: the quote falls back to the row's raw text
+        text = spec_module.as_spec(
+            rows, source_url=source.get("url") or made.get("url"), sha256=made.get("sha256") or source.get("sha256"),
+            retrieved_at=made.get("retrieved_at"), manufacturer=((values.get("part") or {}).get("manufacturer") or {}).get("value"),
+            paged=media == "application/pdf" or media.startswith("image/"), texts=texts)
+        return {"text": text, "count": len(rows)}
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server: "Server"
@@ -357,6 +386,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(202, app.extract(source_id, self._json_body()))
                 if rest == ["prompt"] and method == "GET":
                     return self._send(200, app.prompt(source_id).encode("utf-8"))
+                if rest == ["spec"] and method == "GET":
+                    product = parse_qs(urlsplit(self.path).query).get("product", [None])[0]
+                    return self._json(200, app.as_spec(source_id, product))
                 if rest == ["publish"] and method == "POST":
                     self._body()
                     return self._json(200, app.publish(source_id))

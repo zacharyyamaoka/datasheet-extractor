@@ -11,4 +11,6 @@ uv run extract <source> --fields fields/actuator.json --option 1|2 [--model clau
   row and column headers from the span index (`src/datasheet_extractor/option1.py`).
 - **Option 2:** one model call on the raw source only, checked like robotparts' `check.py` (`option2.py`).
 
+**Copy as Spec:** the Sources app's review tab has a Copy as Spec button (beside Publish) that copies the kept rows as paste-ready `"key": Spec(...)` lines for a robotparts part file's `specs={...}`; the same block from the command line: `uv run extract as-spec <source id> [--home DIR] [--product ID]`.
+
 Evaluation: `eval/` (`eval/RESULTS.md`). Agent skill: `skills/datasheet-extractor/SKILL.md`.

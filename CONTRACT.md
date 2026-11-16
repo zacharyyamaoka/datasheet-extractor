@@ -57,6 +57,7 @@ the dead process and appends `failed` to the history for that step (a source it 
 | `POST /api/sources/<id>/review` `{op…}` | appends one §7.1 op; the server stamps `author` (`<home>/config.json`'s `author`, else `git config user.name`, else the OS user) and `at`; returns review.json |
 | `POST /api/sources/<id>/extract` `{model?, category?}` | (re)runs extraction as a background job; `category` is saved to source.json first (a category with no `fields/<category>.json` runs open mode: every specification the source states, keyed `spec.<printed label>`) |
 | `GET /api/sources/<id>/prompt` (text) | a prompt any AI agent can run: the command line for this machine, then the source path/URL, the fields, and where to write values.json |
+| `GET /api/sources/<id>/spec[?product=]` | `{text, count}`: the kept rows as paste-ready `"key": Spec(...)` lines for a robotparts part file's `specs={...}` (Copy as Spec; `extract as-spec <id>` prints the same text) |
 | `POST /api/sources/<id>/publish` | writes `published/<product>/<source>.json` for every assigned product; stage → published |
 
 ## 5. Effective record and publishing

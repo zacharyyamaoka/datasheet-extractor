@@ -35,6 +35,7 @@ export const api = {
   review: (id, op) => call("POST", `/api/sources/${encodeURIComponent(id)}/review`, op),
   extract: (id, body = {}) => call("POST", `/api/sources/${encodeURIComponent(id)}/extract`, body),
   prompt: (id) => call("GET", `/api/sources/${encodeURIComponent(id)}/prompt`),
+  spec: (id) => call("GET", `/api/sources/${encodeURIComponent(id)}/spec`),
   publish: (id) => call("POST", `/api/sources/${encodeURIComponent(id)}/publish`, {}),
 };
 
@@ -102,11 +103,11 @@ export function toast(message, tone) {
   toastTimer = setTimeout(() => toastNode.classList.remove("show"), 2200);
 }
 
-/** Copy text; when the clipboard is refused, select it in a box so Ctrl+C still works. */
-export async function copyText(text, what) {
+/** Copy text; when the clipboard is refused, select it in a box so Ctrl+C still works. `done`: the confirmation, when "<what> copied" is not it. */
+export async function copyText(text, what, done = `${what} copied`) {
   try {
     await navigator.clipboard.writeText(text);
-    toast(`${what} copied`);
+    toast(done);
     return true;
   } catch {
     const box = h("textarea", "copy-fallback");
