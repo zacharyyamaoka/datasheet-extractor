@@ -14,8 +14,8 @@ Runs go to ~/.cache/datasheet-extractor/eval/ (or $DATASHEET_EXTRACTOR_CACHE/eva
 copies of makers' datasheets (Markdownify bundles carry the source), which are mostly not redistributable — the same
 rule as robotparts' ingest cache. A run whose values.json exists is skipped, so a rerun only fills gaps.
 
-Markdownify runs once per source (`bundles/<sha256>/`, with its wall time in `mdify.json`) and every Option 1 run
-of that source reuses the bundle; the scorer charges the mdify time to each Option 1 document.
+Markdownify runs once per source (`bundles/<sha256>/`, with its wall time in `markdownify.json`) and every Option 1 run
+of that source reuses the bundle; the scorer charges the markdownify time to each Option 1 document.
 """
 
 from __future__ import annotations
@@ -98,8 +98,8 @@ def bundle_for(source: pathlib.Path) -> pathlib.Path:
         if (bundle / "index.json").is_file():
             return bundle
         directory.mkdir(parents=True, exist_ok=True)
-        seconds, summary = option1.run_mdify(source, bundle)
-        (directory / "mdify.json").write_text(json.dumps({"seconds": seconds, "summary": summary,
+        seconds, summary = option1.run_markdownify(source, bundle)
+        (directory / "markdownify.json").write_text(json.dumps({"seconds": seconds, "summary": summary,
                                                           "source": str(source)}, indent=2) + "\n", encoding="utf-8")
         return bundle
 

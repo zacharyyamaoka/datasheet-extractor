@@ -165,11 +165,11 @@ def until(check, timeout: float = 60):
 
 
 def fake_capture(html_by_url: dict[str, str]):
-    """Stands in for `mdify capture`: converts the page's HTML with the real `mdify <file>` and records the URL."""
+    """Stands in for `markdownify capture`: converts the page's HTML with the real `markdownify <file>` and records the URL."""
     def capture(url: str, keep: str, out: pathlib.Path) -> None:
         page = out.parent / "captured.html"
         page.write_text(html_by_url[url], encoding="utf-8")
-        jobs.mdify_convert(page, out)
+        jobs.markdownify_convert(page, out)
         record = read_json(out / "source.json")
         record["retrievals"].append({"url": url, "final_url": url, "retrieved_at": "2026-11-05T09:00:00Z",
                                      "http_status": 200, "capture": {"kept": keep.split(",")}})
@@ -178,7 +178,7 @@ def fake_capture(html_by_url: dict[str, str]):
 
 
 def start(home: pathlib.Path, capture=None):
-    app = server_module.App(home, None, {"capture": capture or jobs.mdify_capture, "poll_s": 0.2})
+    app = server_module.App(home, None, {"capture": capture or jobs.markdownify_capture, "poll_s": 0.2})
     server = server_module.Server(app, 0)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     app.queue.start()
@@ -200,7 +200,7 @@ def fake_model(monkeypatch):
 
 @pytest.fixture
 def isolated_cache(tmp_path, monkeypatch):
-    monkeypatch.setenv("MARKDOWNIFY_CACHE", str(tmp_path / "mdify-cache"))
+    monkeypatch.setenv("MARKDOWNIFY_CACHE", str(tmp_path / "markdownify-cache"))
 
 
 # -- the tests --------------------------------------------------------------------------------------------------------
@@ -562,7 +562,7 @@ def test_a_map_op_assigns_a_printed_models_values_and_publishes_them(tmp_path, f
 
 
 def test_a_link_only_capture_stops_at_captured_with_a_note_never_failed(tmp_path):
-    def link_capture(url: str, keep: str, out: pathlib.Path) -> None:      # `mdify capture --keep link`: the record
+    def link_capture(url: str, keep: str, out: pathlib.Path) -> None:      # `markdownify capture --keep link`: the record
         assert keep == "link"
         write_json(out / "source.json", {"sha256": "c" * 64, "bytes": 1234, "media_type": "text/html",
                                          "retrievals": [{"url": url, "final_url": url, "http_status": 200,

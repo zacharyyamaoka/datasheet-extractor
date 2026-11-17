@@ -4,7 +4,7 @@ Writes DIR/values.json (CONTRACT §7) and DIR/run.json (timings, LLM calls, wher
 proposed value is in values.json: `verdict: kept`, or `verdict: dropped` with the checker's reasons — never silently
 left out.
 
-- Option 1: `uv run --directory /home/bam/markdownify mdify <source> --out DIR/bundle`, then one model call over the
+- Option 1: `uv run --directory /home/bam/markdownify markdownify <source> --out DIR/bundle`, then one model call over the
   tagged markdown, then the id checker (option1.py).
 - Option 2: one model call on the raw source only (page images for a PDF or an image, robotparts' page text for
   HTML), then robotparts' quote checker (option2.py).
@@ -31,14 +31,14 @@ from .values import document, source_record
 def extract(source: pathlib.Path, fields_path: pathlib.Path, option: int, backend: str, part_model: str | None,
             out: pathlib.Path, llm_model: str | None = None, bundle: pathlib.Path | None = None) -> dict:
     """One source, one option, one model call. `bundle` (Option 1): a Markdownify bundle already made from this
-    very source, reused instead of running mdify again (its sha256 must match)."""
+    very source, reused instead of running markdownify again (its sha256 must match)."""
     start = time.time()
     out.mkdir(parents=True, exist_ok=True)
     fields = fields_module.load(fields_path)
     record = source_record(source)
     media_type = option2.media_type_of(source)
     run = {"source": str(source), "media_type": media_type, "option": option, "backend": backend,
-           "part_model": part_model, "fields": str(fields_path), "llm_calls": 0, "mdify_seconds": None}
+           "part_model": part_model, "fields": str(fields_path), "llm_calls": 0, "markdownify_seconds": None}
     if option == 1:
         if bundle is not None:
             made = json.loads((bundle / "source.json").read_text(encoding="utf-8"))
@@ -48,7 +48,7 @@ def extract(source: pathlib.Path, fields_path: pathlib.Path, option: int, backen
             bundle_dir = bundle
         else:
             bundle_dir = out / "bundle"
-            run["mdify_seconds"], run["mdify"] = option1.run_mdify(source, bundle_dir)
+            run["markdownify_seconds"], run["markdownify"] = option1.run_markdownify(source, bundle_dir)
         bundle = option1.Bundle.load(bundle_dir)
         prompt = option1.build_prompt(bundle, fields, part_model)
         result = llm.extract(backend, option1.SYSTEM_PROMPT, prompt, option1.output_schema(fields), out / "llm",

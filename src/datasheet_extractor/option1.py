@@ -57,15 +57,15 @@ _DESIGNATION = re.compile(r"(?<![\w.\-/])[A-Za-z]{1,3}(?:-?[A-Za-z]{1,2})?\d[\w.
 MAX_LABEL_BLOCK = 60
 
 
-def run_mdify(source: pathlib.Path, bundle_dir: pathlib.Path) -> tuple[float, str]:
-    """`uv run --directory /home/bam/markdownify mdify <source> --out <bundle_dir>`: (seconds, stderr tail)."""
+def run_markdownify(source: pathlib.Path, bundle_dir: pathlib.Path) -> tuple[float, str]:
+    """`uv run --directory /home/bam/markdownify markdownify <source> --out <bundle_dir>`: (seconds, stderr tail)."""
     start = time.time()
-    run = subprocess.run(["uv", "run", "--directory", str(MARKDOWNIFY), "mdify", str(pathlib.Path(source).resolve()),
+    run = subprocess.run(["uv", "run", "--directory", str(MARKDOWNIFY), "markdownify", str(pathlib.Path(source).resolve()),
                           "--out", str(bundle_dir.resolve())], capture_output=True, text=True, check=False)
     seconds = time.time() - start
-    (bundle_dir.parent / "mdify-stderr.txt").write_text(run.stderr, encoding="utf-8")
+    (bundle_dir.parent / "markdownify-stderr.txt").write_text(run.stderr, encoding="utf-8")
     if run.returncode != 0 or not (bundle_dir / "index.json").is_file():
-        raise RuntimeError(f"mdify failed ({run.returncode}): {run.stderr[-600:]}")
+        raise RuntimeError(f"markdownify failed ({run.returncode}): {run.stderr[-600:]}")
     return round(seconds, 2), run.stdout.strip()
 
 

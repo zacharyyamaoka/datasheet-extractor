@@ -145,7 +145,7 @@ def test_option1_two_pair_rows_and_the_comparison_table():
 
 @needs_harness
 def test_option1_footnote_marker_glued_to_a_label_is_still_the_label():
-    bundle = option1.Bundle.load(HARNESS / "runs" / "mdify" / "07-footnotes" / "pdf" / "bundle")
+    bundle = option1.Bundle.load(HARNESS / "runs" / "markdownify" / "07-footnotes" / "pdf" / "bundle")
     cell = _cell(bundle, "Rated torque2", "Value")
     kept = _check(bundle, {"key": "rated_torque", "value": "9", "unit": "N·m", "raw": "9 N·m", "id": cell}, "KM80-9")
     assert kept.kept, kept.reasons

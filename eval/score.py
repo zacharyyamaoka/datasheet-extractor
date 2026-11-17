@@ -194,10 +194,10 @@ def load_runs(set_name: str) -> list[dict]:
                 run["run"] = json.loads((directory / "run.json").read_text(encoding="utf-8"))
                 bundle = run["run"].get("bundle")
                 if bundle:
-                    mdify = pathlib.Path(bundle).parent / "mdify.json"
-                    run["mdify_seconds"] = json.loads(mdify.read_text())["seconds"] if mdify.is_file() else None
+                    markdownify = pathlib.Path(bundle).parent / "markdownify.json"
+                    run["markdownify_seconds"] = json.loads(markdownify.read_text())["seconds"] if markdownify.is_file() else None
                 else:
-                    run["mdify_seconds"] = run["run"].get("mdify_seconds")
+                    run["markdownify_seconds"] = run["run"].get("markdownify_seconds")
             else:
                 run["failed"] = json.loads((directory / "failed.json").read_text()) if (directory / "failed.json").is_file() else {}
             runs.append(run)
@@ -207,7 +207,7 @@ def load_runs(set_name: str) -> list[dict]:
 def _seconds(run: dict) -> float | None:
     if "run" not in run:
         return None
-    return round(run["run"].get("seconds", 0) + (run.get("mdify_seconds") or 0), 2)
+    return round(run["run"].get("seconds", 0) + (run.get("markdownify_seconds") or 0), 2)
 
 
 def _ratio(a, b):

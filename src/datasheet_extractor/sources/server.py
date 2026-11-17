@@ -1,7 +1,7 @@
 """`extract serve [--port 0] [--home DIR] [--products robotparts:<repo> | file:<path>]` (CONTRACT §1, §4).
 
 A stdlib ThreadingHTTPServer on 127.0.0.1: the page in `web/` at `/`, the API at `/api/*`. It prints the URL and
-opens no browser window. WHY: Zach's no-focus-steal rule — a tool never fronts a window (as `mdify view`).
+opens no browser window. WHY: Zach's no-focus-steal rule — a tool never fronts a window (as `markdownify view`).
 
     GET  /api/fields                       categories available (fields/*.json), each with labels {key: label}
     GET  /api/products                     [{id, title, provider}]

@@ -1,5 +1,5 @@
 {
-  "_why": "The Sources app is a framework-free page with no build step and no network, so the browser modules it needs are pinned copies here, taken from Markdownify's own pinned copies (/home/bam/markdownify src/mdify/viewer/vendor/, git 7f307e13a160de89352d8c7bb5e50c3f487d67ae). tests/sources_journey.py re-hashes every file against this record. To update one: copy the new file, then change its version, origin and sha256 here together.",
+  "_why": "The Sources app is a framework-free page with no build step and no network, so the browser modules it needs are pinned copies here, taken from Markdownify's own pinned copies (/home/bam/markdownify src/markdownify/viewer/vendor/, git 7f307e13a160de89352d8c7bb5e50c3f487d67ae). tests/sources_journey.py re-hashes every file against this record. To update one: copy the new file, then change its version, origin and sha256 here together.",
   "files": {
     "source-highlighter.js": {
       "project": "source-highlighter",

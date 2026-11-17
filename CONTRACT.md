@@ -34,8 +34,8 @@ products.json                     products created here (generic provider), [{id
 ## 3. Stages (the queue)
 
 `added → captured → converted → extracted → published`, plus `failed` with an error. A source never skips a stage
-silently; each step appends `{stage, at}` to `history`. Capture = `mdify capture --keep <capture_keep>` for URLs
-(default `html`; the 5 levels of markdownify CONTRACT §2.1), the file's bytes for files. Convert = `mdify` pipeline A.
+silently; each step appends `{stage, at}` to `history`. Capture = `markdownify capture --keep <capture_keep>` for URLs
+(default `html`; the 5 levels of markdownify CONTRACT §2.1), the file's bytes for files. Convert = `markdownify` pipeline A.
 Extract = Option 1 with the logged-in CLI (default claude), the batch's category fields, every product of the batch.
 A URL with `capture_keep` = `link` alone keeps only the source record: it stops at `captured` with `note: "link only:
 nothing stored to read"` (no convert, no extract, never `failed`).

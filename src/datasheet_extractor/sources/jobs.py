@@ -1,10 +1,10 @@
 """The queue (CONTRACT §3): `added → captured → converted → extracted`, each step a background job in a pool of
 two, each stage change written to source.json before the next step starts.
 
-- **capture**: a URL → `uv run --directory /home/bam/markdownify mdify capture <url> --keep <levels> --out
+- **capture**: a URL → `uv run --directory /home/bam/markdownify markdownify capture <url> --keep <levels> --out
   <source>/bundle`; a file → its uploaded bytes. Either way the sha256 is now known and the source takes its id.
-- **convert**: a file → `mdify <file> --out <source>/bundle` (pipeline A). A URL's capture already converted the
-  HTML it kept (mdify capture builds the bundle in the same visit), so this step checks that bundle is complete.
+- **convert**: a file → `markdownify <file> --out <source>/bundle` (pipeline A). A URL's capture already converted the
+  HTML it kept (markdownify capture builds the bundle in the same visit), so this step checks that bundle is complete.
 - **extract**: extraction.py (Option 1, every product of the batch).
 
 While a job is in a step, source.json's `running` names it (`capture`, `convert`, `extract`), and the stage change
@@ -47,21 +47,21 @@ def is_link_only(source: dict) -> bool:
     return source.get("kind") == "url" and source.get("capture_keep") == LINK_ONLY
 
 
-def mdify_capture(url: str, keep: str, out: pathlib.Path) -> None:
-    run = subprocess.run(["uv", "run", "--directory", str(MARKDOWNIFY), "mdify", "capture", url, "--keep", keep,
+def markdownify_capture(url: str, keep: str, out: pathlib.Path) -> None:
+    run = subprocess.run(["uv", "run", "--directory", str(MARKDOWNIFY), "markdownify", "capture", url, "--keep", keep,
                           "--out", str(out.resolve())], capture_output=True, text=True, check=False)
     (out.parent / "capture-stderr.txt").write_text(run.stderr, encoding="utf-8")
     if run.returncode != 0:
-        raise RuntimeError(f"mdify capture failed ({run.returncode}): {run.stderr[-600:]}")
+        raise RuntimeError(f"markdownify capture failed ({run.returncode}): {run.stderr[-600:]}")
 
 
-def mdify_convert(path: pathlib.Path, out: pathlib.Path) -> None:
-    option1.run_mdify(path, out)
+def markdownify_convert(path: pathlib.Path, out: pathlib.Path) -> None:
+    option1.run_markdownify(path, out)
 
 
 class Queue:
     def __init__(self, store: Store, catalog, backend: str = "claude", llm_model: str | None = None,
-                 capture=mdify_capture, convert=mdify_convert, workers: int = WORKERS, poll_s: float = POLL_S) -> None:
+                 capture=markdownify_capture, convert=markdownify_convert, workers: int = WORKERS, poll_s: float = POLL_S) -> None:
         self.store, self.catalog = store, catalog
         self.backend, self.llm_model = backend, llm_model
         self.capture, self.convert = capture, convert
@@ -190,7 +190,7 @@ class Queue:
             self.capture(source["url"], source["capture_keep"], bundle)
             record = read_json(bundle / "source.json")
             if not record or not record.get("sha256"):
-                raise RuntimeError("mdify capture wrote no source.json with a sha256")
+                raise RuntimeError("markdownify capture wrote no source.json with a sha256")
             sha256 = record["sha256"]
         else:
             upload = directory / "upload" / source["name"]

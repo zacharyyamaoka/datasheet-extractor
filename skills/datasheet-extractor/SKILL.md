@@ -15,7 +15,7 @@ uv run --directory /home/bam/datasheet-extractor extract <source> --fields /home
 ```
 
 - `<source>`: a local file — PDF, PNG/JPEG of a digital page, or a saved HTML page. Fetch a URL first (Markdownify's
-  `mdify capture`, or robotparts' ingest cache) so the bytes a value cites are kept.
+  `markdownify capture`, or robotparts' ingest cache) so the bytes a value cites are kept.
 - `--fields`: what to read (CONTRACT §7 `fields.json`: key, labels in English and Chinese, units, kind, per_model).
   `fields/actuator.json` is robotparts' actuator vocabulary; write another for another kind of part.
 - `--option 1` (default choice): Markdownify converts the source, the model cites block and cell ids, and code reads

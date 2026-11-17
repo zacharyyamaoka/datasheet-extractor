@@ -1,5 +1,5 @@
 // The left pane: the Source Highlighter (source-highlighter/CONTRACT.md §4.2) drawing the captured source and the
-// values' groundings. Ported from Markdownify's viewer (src/mdify/viewer/source.js): this file owns the module's
+// values' groundings. Ported from Markdownify's viewer (src/markdownify/viewer/source.js): this file owns the module's
 // lifecycle, zoom, and turning a drag on the source into a drawn box; rendering and geometry are the highlighter's.
 
 import { highlight } from "./vendor/source-highlighter.js";
