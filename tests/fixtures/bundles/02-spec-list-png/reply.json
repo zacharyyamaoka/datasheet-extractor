@@ -1,0 +1,96 @@
+{
+ "part": {
+  "manufacturer": {
+   "value": "",
+   "raw": "",
+   "id": ""
+  },
+  "model": {
+   "value": "KM60-6",
+   "raw": "KM60-6",
+   "id": "heading-1"
+  }
+ },
+ "values": [
+  {
+   "key": "nominal_voltage",
+   "value": "24",
+   "unit": "V",
+   "raw": "24 V",
+   "condition": "",
+   "id": "list_item-1"
+  },
+  {
+   "key": "voltage_min",
+   "value": "18",
+   "unit": "V",
+   "raw": "18–52 V",
+   "condition": "",
+   "id": "list_item-2"
+  },
+  {
+   "key": "voltage_max",
+   "value": "52",
+   "unit": "V",
+   "raw": "18–52 V",
+   "condition": "",
+   "id": "list_item-2"
+  },
+  {
+   "key": "gear_ratio",
+   "value": "6",
+   "unit": ":1",
+   "raw": "6:1",
+   "condition": "",
+   "id": "list_item-7"
+  },
+  {
+   "key": "rated_torque",
+   "value": "3",
+   "unit": "N·m",
+   "raw": "3 N·m",
+   "condition": "",
+   "id": "list_item-8"
+  },
+  {
+   "key": "peak_torque",
+   "value": "9",
+   "unit": "N·m",
+   "raw": "9 N·m",
+   "condition": "",
+   "id": "list_item-9"
+  },
+  {
+   "key": "rated_speed",
+   "value": "330",
+   "unit": "rpm",
+   "raw": "330 rpm",
+   "condition": "",
+   "id": "list_item-10"
+  },
+  {
+   "key": "mass",
+   "value": "315",
+   "unit": "g",
+   "raw": "315 g",
+   "condition": "",
+   "id": "list_item-11"
+  },
+  {
+   "key": "outer_diameter",
+   "value": "76",
+   "unit": "mm",
+   "raw": "76 mm",
+   "condition": "",
+   "id": "list_item-12"
+  },
+  {
+   "key": "buses",
+   "value": "can",
+   "unit": "",
+   "raw": "CAN 2.0B",
+   "condition": "",
+   "id": "list_item-13"
+  }
+ ]
+}

@@ -1,0 +1,8 @@
+{
+ "part_model": "KM60-6",
+ "fields": "fields/actuator.json",
+ "model": "claude-opus-5-5",
+ "recorded": "~/.cache/datasheet-extractor/eval/synthetic/02-spec-list/png/KM60-6/option1-claude (2026-10-29, rejudged 2026-11-05)",
+ "harness_case": "/home/bam/markdownify/harness/cases/02-spec-list/source.md",
+ "twin": "twin.pdf: the same page as the harness printed it to PDF (harness/out/02-spec-list/pdf/source.pdf)"
+}

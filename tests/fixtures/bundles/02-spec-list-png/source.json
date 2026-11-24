@@ -1,0 +1,13 @@
+{
+ "sha256": "1f71f380353f06828500c4ff37799ab75dd17d087435786421452aa363967b40",
+ "bytes": 90928,
+ "media_type": "image/png",
+ "retrievals": [
+  {
+   "url": "https://example.com/km-series/02-spec-list.png",
+   "final_url": "https://example.com/km-series/02-spec-list.png",
+   "retrieved_at": "2026-10-29T21:03:22Z",
+   "http_status": null
+  }
+ ]
+}
