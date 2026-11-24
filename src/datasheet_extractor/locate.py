@@ -148,8 +148,9 @@ def _page_box(boxes: list[dict]) -> PageBox:
     on_page = [location["box"] for location in boxes if location["page"] == page]
     x0, y0 = min(box[0] for box in on_page), min(box[1] for box in on_page)
     x1, y1 = max(box[2] for box in on_page), max(box[3] for box in on_page)
-    x0, y0 = math.floor(x0 * 1e4) / 1e4, math.floor(y0 * 1e4) / 1e4
-    x1, y1 = min(1.0, math.ceil(x1 * 1e4) / 1e4), min(1.0, math.ceil(y1 * 1e4) / 1e4)
+    # WHY round(…, 6) first: 0.14 × 1e4 is 1400.0000000000002 in floating point, and its ceiling one step too wide
+    x0, y0 = math.floor(round(x0 * 1e4, 6)) / 1e4, math.floor(round(y0 * 1e4, 6)) / 1e4
+    x1, y1 = min(1.0, math.ceil(round(x1 * 1e4, 6)) / 1e4), min(1.0, math.ceil(round(y1 * 1e4, 6)) / 1e4)
     return PageBox(page, max(0.0, x0), max(0.0, y0), x1 - max(0.0, x0), y1 - max(0.0, y0))
 
 
@@ -370,6 +371,18 @@ def not_located(bundle: option1.Bundle | None, block: dict | None, raw: str | No
     return f"{raw!r} was not found among the cited {kind}'s words, so the {kind} is marked"
 
 
+def _wider_note(bundle: option1.Bundle, block: dict, raw: str | None) -> str | None:
+    """Said when the marked words print more than raw: raw is part of a longer printed word ('76.5mm' in an OCR word
+    '76.5mm*72.5mm'). The whole word is marked, never a guessed part of its box."""
+    found = occurrences(bundle, block, raw or "")
+    if len(found) != 1:
+        return None
+    printed = " ".join(option1.plain(bundle.markdown[w["range"]["start"]:w["range"]["end"]]) for w in found[0])
+    if re.sub(r"\s+", "", printed) == re.sub(r"\s+", "", option1.plain(raw or "")):
+        return None
+    return f"the source prints it inside {printed!r}, so that whole text is marked"
+
+
 def selector(locations: list[dict], quote_checked: bool = False) -> Where:
     """The value's words as one compact selector (`raw_grounding`'s Locations, all one occurrence). A web page's words
     are a text quote only when it was checked to match one place on the saved page (`quote_checked`), else their byte
@@ -414,7 +427,9 @@ def where(row: dict, bundle: option1.Bundle | None = None) -> Where:
         # saved page can say whether a quote is unique
         locations, checked = locate(bundle, block, row.get("raw"))
     if locations:
-        return selector(locations, checked)
+        found = selector(locations, checked)
+        wider = _wider_note(bundle, block, row.get("raw")) if block is not None and not row.get("human") else None
+        return dataclasses.replace(found, note="; ".join(filter(None, (found.note, wider))) or None) if wider else found
     if row.get("human"):
         own = cell_selector(row.get("grounding"))
         return Where(own, "words") if own else Where(None, "none", "added by hand with no location")

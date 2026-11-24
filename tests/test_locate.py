@@ -232,3 +232,14 @@ def test_values_json_carries_the_words_beside_the_cell():
     row = next(verdict for verdict in kept if verdict.key == "mass").to_dict()
     assert row["grounding"] and row["raw_grounding"] and row["raw_grounding"] != row["grounding"]
     assert list(row).index("raw_grounding") == list(row).index("grounding") + 1
+
+
+def test_raw_inside_a_longer_printed_word_marks_that_word_and_says_so():
+    # DEEP Robotics' J60 sheet is scanned: OCR reads '76.5mm*72.5mm' as one word, so the diameter cannot have a box of
+    # its own; the whole word is marked (never a guessed part of its box) and the note says so
+    bundle = _tiny_bundle("76.5mm*72.5mm")
+    row = {"id": "outer_diameter@paragraph-1", "key": "outer_diameter", "raw": "76.5mm", "cite": {"id": "paragraph-1"},
+           "grounding": bundle.blocks["paragraph-1"]["grounding"]}
+    where = locate.where(row, bundle)
+    assert where.marks == "words" and where.note == "the source prints it inside '76.5mm*72.5mm', so that whole text is marked"
+    assert parse(where.selector) == PageBox(1, 0.1, 0.2, 0.04, 0.02)
