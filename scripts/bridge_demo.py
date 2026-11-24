@@ -198,7 +198,7 @@ def main(argv: list[str] | None = None) -> int:
              fixture_case("image", "12-full-datasheet-png", "mass"),
              fixture_case("prose-pdf", "01-prose-spec-pdf", "rated_torque")]
     cases = [case for case in cases if case is not None]
-    failures = 0
+    failures = wider_count = exact_count = 0
     for number, case in enumerate(cases, 1):
         home = pathlib.Path(tempfile.mkdtemp(prefix="bridge-demo-"))
         try:
@@ -235,8 +235,10 @@ def main(argv: list[str] | None = None) -> int:
             wider = "prints it inside" in (notes_of(answer["text"]).get(key) or "")
             if squash(printed) == squash(option1.plain(row.get("raw") or "")):
                 verdict = f"{what} inside the box = {printed!r} = raw"
+                exact_count += 1
             elif wider and squash(option1.plain(row.get("raw") or "")) in squash(printed):
                 verdict = f"{what} inside the box = {printed!r}, which holds raw {row.get('raw')!r} (its note says so)"
+                wider_count += 1
             else:
                 verdict = f"MISMATCH: {what} inside the box = {printed!r}, raw = {row.get('raw')!r}"
                 failures += 1
@@ -259,7 +261,8 @@ def main(argv: list[str] | None = None) -> int:
             shot = shots / f"bridge-{number}-{case['label']}.png"
             crop(page_image(raw, selector.page), selector, cell, caption).save(shot)
             print(f"  crop: {shot}")
-    print(f"\n{failures} box(es) disagree with the PDF text layer" if failures else "\nevery PDF box holds exactly its raw")
+    print(f"\n{exact_count} boxes hold exactly their raw; {wider_count} hold a longer printed word around it (said in "
+          f"their notes); {failures} disagree")
     return 1 if failures else 0
 
 
