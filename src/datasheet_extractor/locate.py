@@ -21,11 +21,20 @@ import codecs
 import dataclasses
 import html
 import math
+import os
 import pathlib
 import re
+import sys
 from html.parser import HTMLParser
 
-from source_msgs import PageBox, TextPosition, TextQuote, XPath
+try:
+    from source_msgs import PageBox, TextPosition, TextQuote, XPath
+except ImportError:
+    # WHY a fallback onto the sibling checkout: code run from another project's environment (tests/sources_journey.py
+    # runs in markdownify's) imports this package from src/ without its dependencies; source_msgs is stdlib-only, and
+    # the checkout is the code uv.lock pins. SOURCE_MSGS_SRC overrides.
+    sys.path.append(os.environ.get("SOURCE_MSGS_SRC", "/home/bam/source-highlighter/packages/source_msgs/src"))
+    from source_msgs import PageBox, TextPosition, TextQuote, XPath
 
 from . import option1
 
