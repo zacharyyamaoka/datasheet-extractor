@@ -57,7 +57,7 @@ the dead process and appends `failed` to the history for that step (a source it 
 | `POST /api/sources/<id>/review` `{op…}` | appends one §7.1 op; the server stamps `author` (`<home>/config.json`'s `author`, else `git config user.name`, else the OS user) and `at`; returns review.json |
 | `POST /api/sources/<id>/extract` `{model?, category?}` | (re)runs extraction as a background job; `category` is saved to source.json first (a category with no `fields/<category>.json` runs open mode: every specification the source states, keyed `spec.<printed label>`) |
 | `GET /api/sources/<id>/prompt` (text) | a prompt any AI agent can run: the command line for this machine, then the source path/URL, the fields, and where to write values.json |
-| `GET /api/sources/<id>/spec[?product=]` | `{text, count}`: the kept rows as paste-ready `"key": Spec(...)` lines for a robotparts part file's `specs={...}` (Copy as Spec; `extract as-spec <id>` prints the same text) |
+| `GET /api/sources/<id>/spec[?product=&form=stated\|spec]` | `{text, count, form, save_as}`: the kept rows paste-ready (Copy as Spec; `extract as-spec <id> [--spec]` prints the same text). `stated` (default): a robot_models source file, `Stated(value, unit, as_written, where=…)` per value (§7); `spec`: `"key": Spec(...)` lines for a catalogue part file's `specs={...}`, the `where` in the note. `save_as`: `{py, raw, raw_from, product}`, the user/parts folder's `sources/<name>.py` and raw file when the product has one |
 | `POST /api/sources/<id>/publish` | writes `published/<product>/<source>.json` for every assigned product; stage → published |
 
 ## 5. Effective record and publishing
@@ -67,8 +67,9 @@ original; reject marks `rejected: true`; restore clears it; add appends a human 
 or `null`); assign/unassign set `products`; map `{model, product|null}` assigns the values read for that model
 (`part_models`, or a cite row/column naming it) to the product — per value and product the last op wins, and an
 unmap takes back only what the map gave (the record's `models` lists the current mappings). A published datasheet is one product's view:
-`{product, source: {sha256, url, retrieved_at}, values: [{id, key, value, unit, raw, grounding, provenance: {by:
-"ai"|"<author>", at, ai?: <original>}}]}` — rejected values left out, every value still pointing at its source.
+`{product, source: {sha256, url, retrieved_at}, values: [{id, key, value, unit, raw, grounding, raw_grounding?,
+provenance: {by: "ai"|"<author>", at, ai?: <original>}}]}` — rejected values left out, every value still pointing at
+its source. An edit to `raw` or `grounding` clears `raw_grounding` (it marked the old text).
 
 ## 6. Review tab (the UI)
 
@@ -79,3 +80,23 @@ p products, and a version log docked at the bottom; **V4**'s "this datasheet cov
 step on top; **V3**'s per-product columns as a view toggle. Source on the left via the Source Highlighter; click a row
 → its source spotlights. Edit in place, no Fix button, no modal; untouched = accepted; struck stays visible.
 Every pane boundary drags and is remembered; the log and the mapping step fold.
+
+## 7. A value's own words, and its `where` (2026-11-24)
+
+values.json rows from Option 1 and open mode carry, beside Markdownify's `grounding` (the cited cell or block):
+
+- `raw_grounding`: the Locations (source-highlighter CONTRACT §2) of the words that print `raw` inside the cited block,
+  from index.json's words: one `{page, box}` per line for a PDF or image; for a web page one
+  `{html: {source_range, xpath, text_quote}}`, whose quote context is grown across the page until it matches exactly
+  one place on the saved page (left out when it cannot be). `null` when raw is not among the block's words or is
+  printed there more than once: neither is marked (the highlighter's rule: several matches are reported, never
+  picked from). Rows written before this have no key; Copy as Spec then finds the words in the bundle.
+- `cite.label_ids` / `cite.label`: the cells the checker read the field's label in, and that label as the source
+  prints it (no NFKC), a Stated's `as_written`.
+
+Copy as Spec writes each value's `where` as one source_msgs compact selector: `page=N&xywh=percent:x,y,w,h` (the
+words' box, rounded outward to 0.01 %), `text=prefix-,exact,-suffix` (a web page's checked quote), `char=a,b` (a web
+page's words by code points into the pinned bytes, when no quote is unique), or the cited cell's box or `xpath=` with
+a note saying the words were not located.
+WHY (Zach, 2026-11-24): "when I click that I want to basically be taken directly not just to the page, but see
+highlighted the exact text that you got that information from."

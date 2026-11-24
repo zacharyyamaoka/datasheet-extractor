@@ -12,7 +12,9 @@ left out.
 DIR/llm/ keeps the call's prompt, schema, argv, raw events.jsonl and the parsed output.
 
 `extract serve [--port 0] [--home DIR] [--products …]` runs the Sources app instead (CONTRACT.md; sources/server.py).
-`extract as-spec <source id> [--home DIR] [--product ID]` prints a source's kept rows as paste-ready `Spec(...)` lines.
+`extract as-spec <source id> [--home DIR] [--product ID] [--spec]` prints a source's kept rows, paste-ready: a whole
+robot_models source file (`Stated(..., where=...)`, for robotparts user/parts), or with `--spec` `Spec(...)` lines for a
+catalogue part file.
 """
 
 from __future__ import annotations
@@ -84,24 +86,28 @@ def extract(source: pathlib.Path, fields_path: pathlib.Path, option: int, backen
 
 
 def as_spec_main(argv: list[str]) -> int:
-    """`extract as-spec <source id> [--home DIR] [--product ID] [--products SPEC]`: the Copy as Spec block on stdout (the
-    same text the Sources app's button copies), for an agent or a pipe. Exit 1 with the reason on stderr when there is
-    no such source or nothing is kept."""
+    """`extract as-spec <source id> [--home DIR] [--product ID] [--products SPEC] [--spec]`: the Copy as Spec text on
+    stdout (the same text the Sources app's buttons copy), for an agent or a pipe; where to save it on stderr. Exit 1
+    with the reason on stderr when there is no such source or nothing is kept."""
     from .sources.server import ApiError, App
     from .sources.store import default_home
     parser = argparse.ArgumentParser(prog="extract as-spec", description="A source's kept rows (not rejected, kept by "
-                                     "the checker, or added by hand) as `\"key\": Spec(...)` lines to paste inside a "
-                                     "robotparts part file's `specs={...}`.")
+                                     "the checker, or added by hand), paste-ready: a robot_models source file for "
+                                     "robotparts user/parts/<id>/sources/<name>.py (default), or `\"key\": Spec(...)` "
+                                     "lines for a catalogue part file's `specs={...}` (--spec). Every value carries "
+                                     "where the source prints it.")
     parser.add_argument("source", help="the source id (first 12 hex of its sha256)")
     parser.add_argument("--home", type=pathlib.Path, default=default_home(),
                         help="the Sources app's state (default: $DATASHEET_EXTRACTOR_HOME or "
                         "~/.local/share/datasheet-extractor/)")
     parser.add_argument("--product", help="only the rows assigned to this product id")
     parser.add_argument("--products", help="robotparts:<repo> | file:<path>/products.json, as for `extract serve`")
+    parser.add_argument("--spec", action="store_true", help="robotparts Spec(...) lines (a catalogue parts/<id> file) "
+                        "instead of a source file")
     arguments = parser.parse_args(argv)
     try:
         app = App(arguments.home, arguments.products)
-        answer = app.as_spec(arguments.source, arguments.product)
+        answer = app.as_spec(arguments.source, arguments.product, "spec" if arguments.spec else "stated")
     except (ApiError, ValueError) as error:
         print(f"extract as-spec: {error}", file=sys.stderr)
         if isinstance(error, ApiError) and error.status == 404:
@@ -113,6 +119,11 @@ def as_spec_main(argv: list[str]) -> int:
               + (f" for product {arguments.product}" if arguments.product else ""), file=sys.stderr)
         return 1
     sys.stdout.write(answer["text"])
+    save_as = answer.get("save_as")
+    if save_as:
+        print(f"extract as-spec: save as {save_as['py']}", file=sys.stderr)
+        if save_as.get("raw_from"):
+            print(f"  beside the raw file {save_as['raw']} (a copy of {save_as['raw_from']})", file=sys.stderr)
     return 0
 
 

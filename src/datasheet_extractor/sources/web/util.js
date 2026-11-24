@@ -35,7 +35,7 @@ export const api = {
   review: (id, op) => call("POST", `/api/sources/${encodeURIComponent(id)}/review`, op),
   extract: (id, body = {}) => call("POST", `/api/sources/${encodeURIComponent(id)}/extract`, body),
   prompt: (id) => call("GET", `/api/sources/${encodeURIComponent(id)}/prompt`),
-  spec: (id) => call("GET", `/api/sources/${encodeURIComponent(id)}/spec`),
+  spec: (id, form = "stated") => call("GET", `/api/sources/${encodeURIComponent(id)}/spec?form=${encodeURIComponent(form)}`),
   publish: (id) => call("POST", `/api/sources/${encodeURIComponent(id)}/publish`, {}),
 };
 

@@ -15,7 +15,9 @@ opens no browser window. WHY: Zach's no-focus-steal rule — a tool never fronts
     POST /api/sources/<id>/extract {model?, category?}   sets the source's category, (re)runs extraction
     GET  /api/sources/<id>/prompt          text/plain: the prompt for any AI agent
     POST /api/sources/<id>/publish         published/<product>/<source>.json for every assigned product
-    GET  /api/sources/<id>/spec[?product=] {text, count}: the kept rows as paste-ready Spec(...) lines (Copy as Spec)
+    GET  /api/sources/<id>/spec[?product=&form=stated|spec]   {text, count, form, save_as}: the kept rows, paste-
+                                           ready (Copy as Spec): a robot_models source file (stated, the default) or
+                                           robotparts Spec(...) lines (spec); every value with its `where`
 """
 
 from __future__ import annotations
@@ -37,8 +39,8 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import effective as effective_module
 from . import extraction, jobs, prompt as prompt_module, spec as spec_module
-from .. import option1
-from .products import Catalog
+from .. import locate, option1
+from .products import Catalog, part_type
 from .store import Store, default_home, now, parse_keep, read_json
 
 WEB = pathlib.Path(__file__).with_name("web")
@@ -283,8 +285,16 @@ class App:
         return {"source": source, "published": [str(path) for path in paths]}
 
 
-    def as_spec(self, source_id: str, product: str | None = None) -> dict:
-        """{text, count}: the source's kept rows (of one product, when given) as `Spec(...)` dict entries (spec.py)."""
+    def as_spec(self, source_id: str, product: str | None = None, form: str | None = None) -> dict:
+        """{text, count, form, save_as}: the source's kept rows (of one product, when given), paste-ready (spec.py).
+
+        `form`: `stated` (default) is a whole robot_models source file for `user/parts/<id>/sources/<name>.py`;
+        `spec` is `"key": Spec(...)` lines for a catalogue part file. Each value's `where` is found in the bundle
+        (locate.py). `save_as` names where the file and the raw file go (`product`'s user/parts folder, else the one
+        product the rows are assigned to), and the bundle file to copy as the raw file."""
+        form = form or "stated"
+        if form not in ("stated", "spec"):
+            raise ApiError(400, f"form is stated or spec, not {form!r}")
         source = self.source(source_id)
         values = self.store.values(source["id"])
         if values is None:
@@ -296,18 +306,46 @@ class App:
         made = values.get("source") or {}
         bundle = pathlib.Path(source.get("bundle") or "")
         media = (read_json(bundle / "source.json", {}) or {}).get("media_type") or ""
-        texts = {}
+        texts, loaded = {}, None
         try:
             loaded = option1.Bundle.load(bundle)
             texts = {row["cite"]["id"]: loaded.printed(loaded.blocks[row["cite"]["id"]]) for row in rows
                      if (row.get("cite") or {}).get("id") in loaded.blocks}
         except (OSError, ValueError, KeyError):
-            pass                                  # no readable bundle: the quote falls back to the row's raw text
-        text = spec_module.as_spec(
-            rows, source_url=source.get("url") or made.get("url"), sha256=made.get("sha256") or source.get("sha256"),
-            retrieved_at=made.get("retrieved_at"), manufacturer=((values.get("part") or {}).get("manufacturer") or {}).get("value"),
-            paged=media == "application/pdf" or media.startswith("image/"), texts=texts)
-        return {"text": text, "count": len(rows)}
+            loaded = None                         # no readable bundle: quotes and locations come from the rows alone
+        wheres = {row["id"]: locate.where(row, loaded) for row in rows}
+        url = source.get("url") or made.get("url")
+        part = values.get("part") or {}
+        manufacturer = (part.get("manufacturer") or {}).get("value")
+        if form == "spec":
+            text = spec_module.as_spec(rows, source_url=url, sha256=made.get("sha256") or source.get("sha256"),
+                                       retrieved_at=made.get("retrieved_at"), manufacturer=manufacturer,
+                                       paged=media == "application/pdf" or media.startswith("image/"), texts=texts,
+                                       wheres=wheres)
+            return {"text": text, "count": len(rows), "form": form, "save_as": None}
+        targets = [product] if product else sorted({p for row in rows for p in row.get("products") or []})
+        entry = self.catalog.get(targets[0]) if len(targets) == 1 else None
+        folder = (entry or {}).get("folder")
+        found_type = part_type(pathlib.Path(folder)) if folder else None
+        guessed = False
+        if found_type is None and (source.get("category") or "actuator") == "actuator":
+            found_type = spec_module.guess_type([row["key"] for row in rows])
+            guessed = found_type is not None
+        raw_file = locate.source_file(loaded) if loaded is not None else None
+        extension = raw_file.suffix if raw_file is not None else ""
+        name = spec_module.file_name(url, manufacturer, media)
+        text = spec_module.as_stated(
+            rows, source_url=url, sha256=made.get("sha256") or source.get("sha256"),
+            retrieved_at=made.get("retrieved_at"), manufacturer=manufacturer,
+            model=(part.get("model") or {}).get("value") or ((entry or {}).get("model")), media_type=media,
+            name=name, extension=extension, part_type=found_type, type_guessed=guessed,
+            typed_fields=spec_module.typed_fields_of(found_type), wheres=wheres, extractor=values.get("extractor"))
+        where = pathlib.Path(folder) / "sources" if folder else None
+        save_as = {"py": str(where / f"{name}.py") if where else f"<part folder>/sources/{name}.py",
+                   "raw": str(where / f"{name}{extension}") if where else f"<part folder>/sources/{name}{extension}",
+                   "raw_from": str(raw_file) if raw_file is not None else None,
+                   "product": (entry or {}).get("id")}
+        return {"text": text, "count": len(rows), "form": form, "save_as": save_as}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -387,8 +425,9 @@ class Handler(BaseHTTPRequestHandler):
                 if rest == ["prompt"] and method == "GET":
                     return self._send(200, app.prompt(source_id).encode("utf-8"))
                 if rest == ["spec"] and method == "GET":
-                    product = parse_qs(urlsplit(self.path).query).get("product", [None])[0]
-                    return self._json(200, app.as_spec(source_id, product))
+                    query = parse_qs(urlsplit(self.path).query)
+                    return self._json(200, app.as_spec(source_id, query.get("product", [None])[0],
+                                                       query.get("form", [None])[0]))
                 if rest == ["publish"] and method == "POST":
                     self._body()
                     return self._json(200, app.publish(source_id))

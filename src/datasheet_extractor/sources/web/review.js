@@ -128,7 +128,8 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
         <select class="in" data-testid="source-category">${categoryOptions(categoryList, source.category || batch?.category)}</select></label>`}
       <button type="button" class="btn ghost" data-testid="copy-prompt" title="A prompt any AI agent can run to extract this source">Copy prompt</button>
       ${linkOnly ? "" : `<button type="button" class="btn ghost" data-testid="run-extraction" ${source.bundle ? "" : "disabled title=\"not converted yet\""}>Run extraction</button>`}
-      <button type="button" class="btn ghost" data-testid="copy-spec" ${kept ? "title=\"The kept rows as Spec(...) lines, ready to paste into a robotparts part file\"" : "disabled title=\"no rows are kept\""}>Copy as Spec</button>
+      <button type="button" class="btn ghost" data-testid="copy-spec" ${kept ? "title=\"The kept rows as a robot_models source file for your part's sources/ folder: every value with where the source prints it\"" : "disabled title=\"no rows are kept\""}>Copy as Spec</button>
+      <button type="button" class="btn ghost" data-testid="copy-spec-lines" ${kept ? "title=\"The kept rows as Spec(...) lines for a catalogue part file's specs={...}\"" : "disabled title=\"no rows are kept\""}>Spec lines</button>
       <button type="button" class="btn pri" data-testid="publish" ${assigned ? "" : "disabled title=\"assign a product first\""}>Publish</button>`;
     for (const button of $$("[data-view]", head)) {
       button.addEventListener("click", () => {
@@ -172,15 +173,21 @@ export function reviewTab(host, { sourceId, batch, onChanged }) {
     });
     // WHY the server builds the text (sources/spec.py): the CLI `extract as-spec` prints the very same block, and the
     // part file Zach pastes it into is the source of truth, so the app stops at paste-ready lines.
-    $("[data-testid=copy-spec]", head).addEventListener("click", async () => {
+    // WHY a source file first (2026-11-24): Zach's own parts moved to sources/<name>.py + Stated(..., where=) on 11-17,
+    // and "when I click that I want to … see highlighted the exact text that you got that information from" needs
+    // each value's where; the catalogue's Spec lines stay one click away.
+    const copySpec = async (form) => {
       try {
-        const { text, count } = await api.spec(sourceId);
+        const { text, count, save_as: saveAs } = await api.spec(sourceId, form);
         if (!count) return toast("No rows are kept", "error");
-        await copyText(text, "Specs", `Copied ${count} spec${count === 1 ? "" : "s"}`);
+        const what = form === "spec" ? `${count} Spec line${count === 1 ? "" : "s"}` : `a source file of ${count} value${count === 1 ? "" : "s"}`;
+        await copyText(text, form === "spec" ? "Specs" : "Source file", `Copied ${what}${saveAs ? ` · save it as ${saveAs.py}` : ""}`);
       } catch (error) {
-        toast(`No specs: ${error.message}`, "error");
+        toast(`Nothing copied: ${error.message}`, "error");
       }
-    });
+    };
+    $("[data-testid=copy-spec]", head).addEventListener("click", () => copySpec("stated"));
+    $("[data-testid=copy-spec-lines]", head).addEventListener("click", () => copySpec("spec"));
     $("[data-testid=publish]", head).addEventListener("click", async () => {
       try {
         const result = await api.publish(sourceId);

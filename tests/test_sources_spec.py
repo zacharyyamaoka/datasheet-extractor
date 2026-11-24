@@ -298,7 +298,8 @@ def _home(tmp_path, with_bundle=False):
 def test_cli_as_spec_prints_the_block_for_a_source(tmp_path, capsys):
     from datasheet_extractor import cli
     home = _home(tmp_path)
-    assert cli.main(["as-spec", SHA[:12], "--home", str(home)]) == 0
+    # WHY --spec (2026-11-24): the default form is now the robot_models source file; Spec lines sit behind the flag
+    assert cli.main(["as-spec", SHA[:12], "--home", str(home), "--spec"]) == 0
     out = capsys.readouterr().out
     assert list(_entries(out)) == ["rated_torque", "torque_constant", "drivetrain", "mass", "model_note", "backlash"]
     assert "peak_torque" not in out and f'source_url="{URL}"' in out
@@ -307,7 +308,7 @@ def test_cli_as_spec_prints_the_block_for_a_source(tmp_path, capsys):
 def test_the_app_answers_the_same_block_and_a_count_for_the_page(tmp_path):
     from datasheet_extractor.sources import server as server_module
     app = server_module.App(_home(tmp_path))
-    answer = app.as_spec(SHA[:12])
+    answer = app.as_spec(SHA[:12], form="spec")          # WHY form: the source file is the default since 11-24
     assert answer["count"] == 6 and list(_entries(answer["text"])) == [
         "rated_torque", "torque_constant", "drivetrain", "mass", "model_note", "backlash"]
     with pytest.raises(server_module.ApiError) as error:
