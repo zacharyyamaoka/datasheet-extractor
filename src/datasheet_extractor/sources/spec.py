@@ -304,8 +304,8 @@ def as_stated(rows: list[dict], *, source_url: str | None, sha256: str | None, r
       generic `Datasheet`, every value under `extra`. `type_guessed` adds a `# TODO` to check it.
     - `typed_fields`: the type's typed field names; a key outside them goes in `extra={...}`. None: every key that is a
       Python name is written as a keyword (robot_models refuses an unknown one at load, naming the nearest field).
-    - `wheres`: {row id: locate.Where}. A value marked by its cell only says so in its note; one with no location
-      has no `where` and keeps `as_written` as its anchor.
+    - `wheres`: {row id: locate.Where}. A value marked by its OCR line or its cell only says so in its note; one with
+      no location has no `where` and keeps `as_written` as its anchor.
     - `as_written` is the label the checker read, as the source prints it (`cite.label`); a value whose label is
       inside its own sentence has none.
     - a key given twice keeps its first line; later ones are commented out, as in `as_spec`.
@@ -331,7 +331,7 @@ def as_stated(rows: list[dict], *, source_url: str | None, sha256: str | None, r
     about = (f"Read by {by}{read_with}: every value checked against the source by its checker and not rejected in "
              f"review (the Sources app's Copy as Spec). Each `where` marks the words that print the value in "
              f"{name}{extension}, the file the sha256 below pins (a source_msgs selector); a value marked only by its "
-             f"cell says so in its note.")
+             f"line or cell says so in its note.")
     lines = ['"""' + f"{subject}, as the {what}" + (f" on {host}" if host else "") + " prints it.", "",
              *textwrap.wrap(about, 116), '"""']
     typed_import = f"from {module} import {type_name}" if (module, type_name) != GENERIC_TYPE else None
