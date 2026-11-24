@@ -243,3 +243,11 @@ def test_raw_inside_a_longer_printed_word_marks_that_word_and_says_so():
     where = locate.where(row, bundle)
     assert where.marks == "words" and where.note == "the source prints it inside '76.5mm*72.5mm', so that whole text is marked"
     assert parse(where.selector) == PageBox(1, 0.1, 0.2, 0.04, 0.02)
+
+
+def test_a_web_page_row_read_without_its_bundle_is_pinned_by_position_and_says_why():
+    bundle, kept = _replayed("12-full-datasheet-html")
+    row = next(verdict for verdict in kept if verdict.key == "mass").to_dict()
+    where = locate.where(row, None)                   # no bundle: the stored quote cannot be checked against the page
+    span = row["raw_grounding"][0]["html"]["source_range"]
+    assert where.selector == f"char={span['start']},{span['end']}" and "no saved page" in where.note

@@ -402,8 +402,10 @@ def selector(locations: list[dict], quote_checked: bool = False) -> Where:
         if quote.get("exact") and quote_checked:
             return Where(TextQuote(quote["exact"], quote.get("prefix", ""), quote.get("suffix", "")).compact(), "words")
         span = location["source_range"]
-        return Where(TextPosition(span["start"], span["end"]).compact(), "words",
-                     "its words are printed elsewhere on the page too, so it is pinned by position in the saved file")
+        why = ("pinned by its position in the saved file: no saved page was here to check its quote against"
+               if quote.get("exact") else
+               "its words are printed elsewhere on the page too, so they are pinned by position in the saved file")
+        return Where(TextPosition(span["start"], span["end"]).compact(), "words", why)
     lines = [location for location in locations if location.get("page") == locations[0].get("page")]
     note = f"its words wrap over {len(lines)} lines; the box spans them" if len(lines) > 1 else None
     return Where(_page_box(lines).compact(), "words", note)
