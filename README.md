@@ -15,7 +15,9 @@ uv run extract <source> --fields fields/actuator.json --option 1|2 [--model clau
 words that print its `raw`, from the bundle's word index (`src/datasheet_extractor/locate.py`, no model call), and
 values.json keeps both: `grounding` (the cell) and `raw_grounding` (the words: a `{page, box}` per line, or a web page's
 byte range + a text quote checked to match one place on the saved page). Printed twice in its cell, or not found, a
-value keeps `raw_grounding: null` and is marked by its cell, which its note says.
+value keeps `raw_grounding: null` and is marked by its cell, which its note says. On an image or a scanned PDF the
+word boxes are OCR's character-count estimates, so the box is read off the page's ink instead (`ink.py`); a line whose
+words the ink cannot tell apart is marked as the line, and its note says so.
 
 **Copy as Spec:** the Sources app's review tab copies the kept rows paste-ready (`uv run extract as-spec <source id>
 [--home DIR] [--product ID] [--spec]` prints the same text):

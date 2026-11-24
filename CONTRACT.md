@@ -91,12 +91,18 @@ values.json rows from Option 1 and open mode carry, beside Markdownify's `ground
   one place on the saved page (left out when it cannot be). `null` when raw is not among the block's words or is
   printed there more than once: neither is marked (the highlighter's rule: several matches are reported, never
   picked from). Rows written before this have no key; Copy as Spec then finds the words in the bundle.
+  On an OCR'd page (an image, or a PDF with no text layer) index.json's word boxes are character-count slices of
+  OCR's line boxes, estimates that can miss a glyph, so the box is read off the page image's ink instead
+  (`src/datasheet_extractor/ink.py`): the value's own ink when the line's ink splits cleanly into the line's words,
+  the line's ink when the value is the whole line. When the words cannot be told apart, `raw_grounding` is `null`
+  and the value is marked by its OCR line (or, with no page image, its cell), its note saying why (2026-11-24).
 - `cite.label_ids` / `cite.label`: the cells the checker read the field's label in, and that label as the source
   prints it (no NFKC), a Stated's `as_written`.
 
 Copy as Spec writes each value's `where` as one source_msgs compact selector: `page=N&xywh=percent:x,y,w,h` (the
 words' box, rounded outward to 0.01 %), `text=prefix-,exact,-suffix` (a web page's checked quote), `char=a,b` (a web
-page's words by code points into the pinned bytes, when no quote is unique), or the cited cell's box or `xpath=` with
-a note saying the words were not located.
+page's words by code points into the pinned bytes, when no quote is unique), the OCR line's box on an OCR'd page whose
+words could not be told apart, or the cited cell's box or `xpath=`, each of the last two with a note saying why the
+words were not marked.
 WHY (Zach, 2026-11-24): "when I click that I want to basically be taken directly not just to the page, but see
 highlighted the exact text that you got that information from."

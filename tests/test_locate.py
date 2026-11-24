@@ -1,11 +1,13 @@
 """A value's own words (locate.py) and the `where` Copy as Spec writes for them, on recorded model replies replayed
 through the checker (no model call) over real Markdownify bundles of the synthetic datasheets
-(tests/fixtures/bundles/README.md): a PDF table, an image of the same table, a web page with the table, a web page
-whose '24 V' is printed twice, and a prose paragraph.
+(tests/fixtures/bundles/README.md): a PDF table, an image of the same table, an image of a spec list, a web page with
+the table, a web page whose '24 V' is printed twice, and a prose paragraph.
 
 Every `where` must parse with source_msgs, and what it marks must be exactly the value's words:
 - a PDF box is checked against the PDF's own text layer (pdfplumber, an oracle independent of Markdownify's index);
-- an image box against the bundle's word boxes (the image has no text layer);
+- an image box against its twin PDF's text layer (the harness printed the PDF and took the image from one layout) and
+  against the image's own ink (no edge runs through a glyph); the bundle's word boxes are OCR's estimates, so they
+  are no oracle for it;
 - a web page quote against the saved page's text, read here with a separate tag-stripping reader.
 """
 
@@ -109,6 +111,203 @@ def test_an_image_value_is_boxed_on_exactly_its_own_words():
         box = parse(where.selector)
         assert isinstance(box, PageBox) and where.marks == "words"
         assert _squash("".join(_words_in(bundle, box))) == _squash(verdict.raw), (verdict.key, where.selector)
+
+
+# --- an image value inside an OCR line: measured on the page, never a character-count slice -------------------------
+#
+# OCR boxes whole lines, and Markdownify gives each word its slice of the line in proportion to its characters: an
+# estimate that cut the 'C' off 'CAN H' in 'Yellow: CAN H' (independent check, 2026-11-24). Two oracles here, neither
+# of them Markdownify's index: the same page's PDF text layer (the harness printed the PDF and took the PNG from one
+# layout, so their 0-1 coordinates agree: tests/fixtures/bundles/README.md), and the PNG's own ink columns.
+
+def _ink_columns(image_path: pathlib.Path, box: PageBox) -> tuple[list[bool], int]:
+    """(inked?, per column across the whole page width, in the box's rows) and the page width: a dark pixel (< 128)
+    on the synthetic sheets' white paper is ink."""
+    from PIL import Image
+    with Image.open(image_path) as picture:
+        grey = picture.convert("L")
+        width, height = grey.size
+        top, bottom = int(box.y * height), int((box.y + box.h) * height) + 1
+        pixels = grey.crop((0, top, width, bottom)).tobytes()
+    rows = bottom - top
+    return [any(pixels[row * width + column] < 128 for row in range(rows)) for column in range(width)], width
+
+
+def _cuts_a_glyph(image_path: pathlib.Path, box: PageBox) -> list[str]:
+    """Which edge of the box runs through ink: the column just inside it and the one just outside both inked."""
+    columns, width = _ink_columns(image_path, box)
+    left, right = int(box.x * width), int((box.x + box.w) * width)
+    cut = []
+    if left > 0 and columns[left] and columns[left - 1]:
+        cut.append("left")
+    if right < width - 1 and columns[right] and columns[right - 1]:
+        cut.append("right")
+    return cut
+
+
+def test_a_value_inside_an_ocr_line_is_boxed_on_its_own_ink():
+    bundle, kept = _replayed("12-full-datasheet-png")
+    buses = next(verdict for verdict in kept if verdict.key == "buses")
+    assert buses.raw == "CAN H" and bundle.printed(bundle.blocks[buses.cite["id"]]).endswith("Yellow: CAN H")
+    where = _where(bundle, buses)
+    box = parse(where.selector)
+    assert isinstance(box, PageBox) and where.marks == "words", where
+    twin = BUNDLES / "12-full-datasheet-pdf" / "source.pdf"
+    assert _squash(_pdf_text_in(twin, box)) == "CANH", (where.selector, _pdf_text_in(twin, box))
+    assert _cuts_a_glyph(BUNDLES / "12-full-datasheet-png" / "source.png", box) == [], where.selector
+    # values.json keeps the same measured box
+    assert parse(locate.selector(buses.raw_grounding).selector) == box
+
+
+def test_every_image_value_is_boxed_on_exactly_the_characters_the_page_prints():
+    """Every kept value of the image, table cells and list item alike, against the twin PDF's text layer."""
+    bundle, kept = _replayed("12-full-datasheet-png")
+    twin = BUNDLES / "12-full-datasheet-pdf" / "source.pdf"
+    for verdict in kept:
+        if verdict.key.startswith("part."):
+            continue
+        where = _where(bundle, verdict)
+        box = parse(where.selector)
+        assert where.marks == "words", (verdict.key, where)
+        assert _squash(_pdf_text_in(twin, box)) == _squash(verdict.raw), (verdict.key, where.selector)
+        assert _cuts_a_glyph(BUNDLES / "12-full-datasheet-png" / "source.png", box) == [], (verdict.key, where.selector)
+
+
+TWINS = {"12-full-datasheet-png": BUNDLES / "12-full-datasheet-pdf" / "source.pdf",
+         "02-spec-list-png": BUNDLES / "02-spec-list-png" / "twin.pdf"}
+
+
+@pytest.mark.parametrize("name", ["02-spec-list-png", "12-full-datasheet-png"])
+def test_no_image_value_box_misses_or_borrows_a_glyph(name):
+    """02-spec-list's values sit inside OCR lines ('Rated torque: 3 N·m'): before the ink was read, 5 of its 10 boxes
+    cut a glyph ('76 mm' marked '6 mm')."""
+    bundle, kept = _replayed(name)
+    values = [verdict for verdict in kept if not verdict.key.startswith("part.")]
+    assert len(values) >= 7
+    for verdict in values:
+        where = _where(bundle, verdict)
+        box = parse(where.selector)
+        assert where.marks == "words", (verdict.key, where)
+        printed = _squash(_pdf_text_in(TWINS[name], box))
+        if where.note and "prints it inside" in where.note:
+            # raw is part of a longer printed word ('CAN 2.0B,'): that whole word, no more
+            assert _squash(verdict.raw) in printed and printed in _squash(where.note), (verdict.key, printed, where.note)
+        else:
+            assert printed == _squash(verdict.raw).replace("–", "-") or printed == _squash(verdict.raw), \
+                (verdict.key, where.selector, printed)
+        assert _cuts_a_glyph(BUNDLES / name / "source.png", box) == [], (verdict.key, where.selector)
+
+
+def test_a_scanned_pdf_is_measured_on_its_rendered_page(tmp_path):
+    """A PDF with no text layer (DEEP Robotics' J60 sheet is one) is OCR'd like an image: the same bundle with its
+    page saved as an image-only PDF is measured on the PDF's render, and 'CAN H' keeps its 'C'."""
+    import shutil
+    from PIL import Image
+    folder = tmp_path / "scanned"
+    shutil.copytree(BUNDLES / "12-full-datasheet-png", folder)
+    with Image.open(folder / "source.png") as picture:
+        picture.convert("RGB").save(folder / "source.pdf", resolution=192.0)       # 1632 px at 192 dpi: 612 pt
+    (folder / "source.png").unlink()
+    index = json.loads((folder / "index.json").read_text(encoding="utf-8"))
+    index["source"]["media_type"] = "application/pdf"
+    (folder / "index.json").write_text(json.dumps(index), encoding="utf-8")
+    bundle = option1.Bundle.load(folder)
+    assert locate.ocr(bundle)
+    assert not locate.ocr(option1.Bundle.load(BUNDLES / "12-full-datasheet-pdf"))
+    _, kept = _replayed("12-full-datasheet-png")
+    buses = next(verdict for verdict in kept if verdict.key == "buses")
+    where = locate.where(buses.to_dict(), bundle)
+    box = parse(where.selector)
+    assert where.marks == "words" and _squash(_pdf_text_in(TWINS["12-full-datasheet-png"], box)) == "CANH", where
+    assert _cuts_a_glyph(BUNDLES / "12-full-datasheet-png" / "source.png", box) == []
+
+
+def test_the_oracles_catch_a_character_count_slice(monkeypatch):
+    """The rulers above can fail: with the ink not read (the slice handed on as before), 'CAN H' is caught by both."""
+    bundle, kept = _replayed("12-full-datasheet-png")
+    buses = next(verdict for verdict in kept if verdict.key == "buses")
+    monkeypatch.setattr(locate, "ocr", lambda bundle: False)
+    box = parse(_where(bundle, buses).selector)
+    assert _squash(_pdf_text_in(TWINS["12-full-datasheet-png"], box)) == "ANH"
+    assert _cuts_a_glyph(BUNDLES / "12-full-datasheet-png" / "source.png", box) == ["left"]
+
+
+# --- an OCR line whose words cannot be told apart: the line, said plainly ------------------------------------------
+
+def _drawn_bundle(tmp_path: pathlib.Path, glyphs: list[tuple[int, int]], text: str, *, image: bool = True):
+    """A one-line OCR'd image: black blocks at `glyphs` (x0, x1 in px) on a white 1000 x 200 page, and an index whose
+    words are Markdownify's character-count slices of the line's box [100, 900] x [80, 120] for `text`."""
+    from PIL import Image, ImageDraw
+    if image:
+        picture = Image.new("L", (1000, 200), 255)
+        draw = ImageDraw.Draw(picture)
+        for x0, x1 in glyphs:
+            draw.rectangle([x0, 88, x1, 112], fill=0)
+        picture.save(tmp_path / "source.png")
+    words, start, length = [], 0, len(text)
+    for token in text.split(" "):
+        end = start + len(token)
+        words.append({"range": {"start": start, "end": end},
+                      "grounding": {"page": 1, "box": [round((100 + 800 * start / length) / 1000, 5), 0.4,
+                                                       round((100 + 800 * end / length) / 1000, 5), 0.6]}})
+        start = end + 1
+    block = {"id": "paragraph-1", "type": "paragraph", "range": {"start": 0, "end": len(text)},
+             "grounding": [{"page": 1, "box": [0.09, 0.38, 0.91, 0.62]}]}
+    index = {"source": {"media_type": "image/png"}, "pages": [{"page": 1, "width": 1000, "height": 200, "unit": "px"}],
+             "blocks": [block], "words": words}
+    return option1.Bundle(tmp_path, text, index, {"paragraph-1": block})
+
+
+def _row(bundle, raw):
+    block = bundle.blocks["paragraph-1"]
+    return {"id": f"x@{block['id']}", "key": "x", "raw": raw, "cite": {"id": block["id"]}, "grounding": block["grounding"]}
+
+
+def test_drawn_words_are_found_on_their_ink_not_their_slices(tmp_path):
+    # three words whose ink does not sit where equal-width characters would put it: 'WWWW' wide, 'ii' narrow
+    bundle = _drawn_bundle(tmp_path, [(100, 140), (146, 186), (192, 232), (238, 278), (330, 336), (342, 348),
+                                      (400, 470), (478, 548), (556, 626)], "WWWW ii 9xx")
+    where = locate.where(_row(bundle, "ii"), bundle)
+    assert where == locate.Where("page=1&xywh=percent:33,40,1.9,20", "words")    # columns 330-348, inclusive
+    assert locate.where(_row(bundle, "9xx"), bundle).selector == "page=1&xywh=percent:40,40,22.7,20"
+
+
+def test_a_line_whose_words_cannot_be_told_apart_is_marked_as_the_line_and_says_why(tmp_path):
+    # every gap the same width: the ink does not say where one word ends
+    bundle = _drawn_bundle(tmp_path, [(100 + 60 * index, 150 + 60 * index) for index in range(13)],
+                           "AAA BBB CCC DDD EE")
+    where = locate.where(_row(bundle, "CCC"), bundle)
+    assert where.marks == "line" and where.selector == "page=1&xywh=percent:10,40,77.1,20"    # columns 100-870
+    assert where.note == ("OCR boxes whole lines, not single words, and this line's words could not be told apart on "
+                          "the page image, so the line is marked")
+    assert locate.raw_grounding(bundle, bundle.blocks["paragraph-1"], "CCC") is None
+
+
+@pytest.mark.parametrize("case, text, glyphs", [
+    # a letter gap (30 px) almost as wide as the one word space (34 px): which gap is the space is not clear
+    ("unclear", "AB CD", [(100, 180), (211, 290), (325, 405), (416, 496)]),
+    # one gap the split must cut (13 px) is unlike the line's other word spaces (88 px)
+    ("unlike", "A B C D E", [(100, 189), (278, 367), (456, 544), (558, 722), (811, 900)]),
+    # the only gap to cut is 2 px: letter spacing on a 40 px line, not a word space
+    ("narrow", "AB CD", [(100, 189), (191, 420), (423, 600), (602, 900)]),
+    # four clean words of ink, all at the left end of a line OCR read across its whole width: not where it read them
+    ("elsewhere", "AA BB CC DD", [(100, 140), (160, 200), (220, 260), (280, 320)]),
+])
+def test_ink_that_does_not_clearly_split_into_the_ocr_words_marks_the_line(tmp_path, case, text, glyphs):
+    bundle = _drawn_bundle(tmp_path, glyphs, text)
+    raw = text.split(" ")[1]
+    where = locate.where(_row(bundle, raw), bundle)
+    assert where.marks == "line" and "could not be told apart" in where.note, (case, where)
+
+
+def test_with_no_page_image_a_value_inside_an_ocr_line_marks_its_cell(tmp_path):
+    bundle = _drawn_bundle(tmp_path, [], "Rated torque: 3 N·m", image=False)
+    where = locate.where(_row(bundle, "3 N·m"), bundle)
+    assert where.marks == "cell" and where.selector == "page=1&xywh=percent:9,38,82,24"
+    assert "page image was not here" in where.note and where.note.endswith("so the cell is marked")
+    # a value that is the whole OCR line keeps the line's own box, which OCR measured
+    whole = _drawn_bundle(tmp_path, [], "3 N·m", image=False)
+    assert locate.where(_row(whole, "3 N·m"), whole) == locate.Where("page=1&xywh=percent:10,40,80,20", "words")
 
 
 # --- a web page value ------------------------------------------------------------------------------------------------

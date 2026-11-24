@@ -296,6 +296,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "pdfplumber" },
+    { name = "pillow" },
+    { name = "pypdfium2" },
     { name = "source-msgs" },
 ]
 
@@ -307,6 +309,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pdfplumber", specifier = ">=0.11.10" },
+    { name = "pillow", specifier = ">=12" },
+    { name = "pypdfium2", specifier = ">=4" },
     { name = "source-msgs", git = "https://github.com/zacharyyamaoka/source-highlighter?subdirectory=packages%2Fsource_msgs" },
 ]
 

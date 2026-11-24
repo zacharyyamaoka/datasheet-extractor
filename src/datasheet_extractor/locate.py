@@ -24,6 +24,7 @@ import math
 import os
 import pathlib
 import re
+import statistics
 import sys
 from html.parser import HTMLParser
 
@@ -36,7 +37,7 @@ except ImportError:
     sys.path.append(os.environ.get("SOURCE_MSGS_SRC", "/home/bam/source-highlighter/packages/source_msgs/src"))
     from source_msgs import PageBox, TextPosition, TextQuote, XPath
 
-from . import option1
+from . import ink, option1
 
 # A value's words on one line overlap vertically by at least this share of the shorter word's height.
 SAME_LINE = 0.5
@@ -51,8 +52,9 @@ class Where:
     - `selector`: `page=N&xywh=percent:x,y,w,h` (PDF, image), `text=prefix-,exact,-suffix` (a web page), `char=a,b`
       (a web page whose quote is not unique: code points into the pinned bytes), `xpath=…` (a web page's cited cell),
       or None (nothing to point at).
-    - `marks`: `"words"` (exactly the words that print raw), `"cell"` (the cited cell or block only: its words were
-      not located), or `"none"`.
+    - `marks`: `"words"` (exactly the words that print raw), `"line"` (an OCR'd page: the line that prints them, read
+      off the page's ink, when its words could not be told apart), `"cell"` (the cited cell or block only: its words
+      were not located), or `"none"`.
     - `note`: why it is not the words, or what to know about them, in plain words; None when there is nothing to say.
     """
 
@@ -341,30 +343,196 @@ def _html_location(bundle: option1.Bundle, block: dict, words: list[dict]) -> tu
     return location, unique
 
 
+# --- OCR'd pages (an image, a PDF with no text layer) -----------------------------------------------------------------
+#
+# OCR boxes whole lines, not words: Markdownify gives each word of an OCR line "its slice of the line's box, in
+# proportion to its characters" (markdownify/image.py). The line's box is measured, the slices are not, and a slice
+# can miss a whole glyph ('CAN H' in 'Yellow: CAN H' lost its 'C', 12 of 116 OCR word boxes in the eval cache on
+# 2026-11-24). So on an OCR'd page a value's box is read off the page image's ink (ink.py): its words' own ink when the
+# line's ink splits cleanly into the line's words, the whole line's ink when the value is the whole line; else the line
+# (or, with no page image, the cell) is marked and the note says why. A slice is never handed on as the words.
+
+# A one-word OCR line this much taller than the page's middle line height is a word Markdownify grounded on two OCR
+# lines at once (the union of two lines' slices): its band holds two lines of ink, so it is not measured.
+TALL_WORD = 1.8
+
+
+def ocr(bundle: option1.Bundle) -> bool:
+    """Whether the bundle's word boxes are OCR's: an image, or a PDF with no text layer (Markdownify OCRs a PDF only
+    when no page has text-layer characters, `markdownify.pdf.has_text_layer`)."""
+    if "_ocr" not in bundle.__dict__:
+        media = ((bundle.index.get("source") or {}).get("media_type") or "").lower()
+        found = media.startswith("image/")
+        if media == "application/pdf":
+            path = source_file(bundle)
+            layer = ink.has_text_layer(path) if path is not None and path.suffix.lower() == ".pdf" else None
+            if layer is not None:
+                found = not layer
+            else:
+                ledger = bundle.directory / "ledger.json"
+                found = ledger.is_file() and _no_inventory(ledger)
+        bundle.__dict__["_ocr"] = found
+    return bundle.__dict__["_ocr"]
+
+
+def _no_inventory(ledger: pathlib.Path) -> bool:
+    """The ledger says the PDF had no text layer to inventory (Markdownify's mark of an image-only PDF)."""
+    import json
+    try:
+        return (json.loads(ledger.read_text(encoding="utf-8")).get("source") or {}).get("available") is False
+    except (OSError, ValueError):
+        return False
+
+
+def _page_image(bundle: option1.Bundle, page: int):
+    images = bundle.__dict__.setdefault("_page_images", {})
+    if page not in images:
+        path = source_file(bundle)
+        images[page] = ink.load_page(path, page) if path is not None else None
+    return images[page]
+
+
+def _box(word: dict) -> list[float] | None:
+    return _grounding(word).get("box")
+
+
+def ocr_line(bundle: option1.Bundle, word: dict) -> list[dict]:
+    """The words OCR read as one line with `word`. Every slice of an OCR line keeps the line's own top and bottom, so
+    they are the run of words around it in markdown order on its page with exactly that top and bottom, left to
+    right."""
+    words = _words(bundle)
+    position = bundle.__dict__.get("_word_position")
+    if position is None:
+        position = {id(each): index for index, each in enumerate(words)}
+        bundle.__dict__["_word_position"] = position
+
+    def same(a: dict, b: dict) -> bool:
+        first, second = _grounding(a), _grounding(b)
+        one, two = first.get("box"), second.get("box")
+        return bool(one and two) and first.get("page") == second.get("page") and one[1] == two[1] and one[3] == two[3]
+
+    at = position[id(word)]
+    start = end = at
+    while start > 0 and same(words[start - 1], words[start]) and _box(words[start - 1])[2] <= _box(words[start])[0]:
+        start -= 1
+    while end + 1 < len(words) and same(words[end], words[end + 1]) and _box(words[end])[2] <= _box(words[end + 1])[0]:
+        end += 1
+    return words[start:end + 1]
+
+
+def _masks(bundle: option1.Bundle, page: int, line: list[dict], box: list[float]) -> list[list[float]]:
+    """Boxes of other OCR words printed inside the line's band (a footnote mark after a word is its own OCR line)."""
+    mine = {id(word) for word in line}
+    return [_box(word) for word in _words(bundle)
+            if id(word) not in mine and _box(word) and _grounding(word).get("page") == page
+            and _box(word)[1] >= box[1] and _box(word)[3] <= box[3]]
+
+
+@dataclasses.dataclass
+class Located:
+    """What `locate` found for one value.
+
+    - `words`: the Locations of the value's own words (`raw_grounding`), or None.
+    - `quote_checked`: a web page's quote was checked to match one place on the saved page.
+    - `lines`: an OCR'd page whose words could not be told apart: the lines that print them, read off the page's ink.
+    - `why`: why the words are not marked, in plain words (None when they are, or when `not_located` says it).
+    """
+
+    words: list[dict] | None
+    quote_checked: bool = False
+    lines: list[dict] | None = None
+    why: str | None = None
+
+
+def _line_height(bundle: option1.Bundle) -> float:
+    """The middle height of the bundle's word boxes: one OCR line's height."""
+    if "_line_height" not in bundle.__dict__:
+        heights = [box[3] - box[1] for box in (_box(word) for word in _words(bundle)) if box]
+        bundle.__dict__["_line_height"] = statistics.median(heights) if heights else 0.0
+    return bundle.__dict__["_line_height"]
+
+
+def _ocr_located(bundle: option1.Bundle, found: list[dict]) -> Located:
+    """The value's words on an OCR'd page, measured on its ink; else the lines that print them; else why neither."""
+    lines: list[tuple[list[dict], set[int]]] = []
+    for word in found:
+        if not _box(word):
+            continue
+        if not lines or not any(id(word) == id(each) for each in lines[-1][0]):
+            lines.append((ocr_line(bundle, word), set()))
+        lines[-1][1].add(id(word))
+    if not lines:
+        return Located(None, why="its words have no boxes in the source's word index, so the cell is marked")
+    words, inked, problem = [], [], None
+    for line, mine in lines:
+        page = _grounding(line[0])["page"]
+        boxes = [_box(word) for word in line]
+        line_box = [min(box[0] for box in boxes), boxes[0][1], max(box[2] for box in boxes), boxes[0][3]]
+        whole = len(mine) == len(line)
+        if len(line) == 1 and line_box[3] - line_box[1] > TALL_WORD * _line_height(bundle):
+            problem = problem or "OCR's box for its words is taller than one line"
+            continue
+        image = _page_image(bundle, page)
+        if image is None:
+            if whole:
+                # the line's own box is OCR's measurement; only the cuts inside it are estimates
+                words.append({"page": page, "box": line_box})
+            else:
+                problem = problem or ("OCR boxes whole lines, not single words, and the page image was not here to "
+                                      "find its words on")
+            continue
+        masks = _masks(bundle, page, line, line_box)
+        extent = ink.extent(image, line_box, masks)
+        if extent is None:
+            problem = problem or "OCR boxes whole lines, and other ink touches this line on the page image"
+            continue
+        inked.append({"page": page, "box": [extent[0], line_box[1], extent[1], line_box[3]]})
+        if whole:
+            words.append(inked[-1])
+            continue
+        runs = ink.split(image, line_box, boxes, masks)
+        if runs is None:
+            problem = problem or ("OCR boxes whole lines, not single words, and this line's words could not be told "
+                                  "apart on the page image")
+            continue
+        picked = [run for word, run in zip(line, runs) if id(word) in mine]
+        words.append({"page": page, "box": [min(run[0] for run in picked), line_box[1],
+                                            max(run[1] for run in picked), line_box[3]]})
+    if problem is None:
+        return Located([{"page": location["page"], "box": [round(value, 6) for value in location["box"]]}
+                        for location in words])
+    if len(inked) == len(lines):
+        return Located(None, lines=inked, why=problem + ", so the line is marked")
+    return Located(None, why=problem + ", so the cell is marked")
+
+
 # --- the value's words -----------------------------------------------------------------------------------------------
 
 def paged(bundle: option1.Bundle) -> bool:
     return bool(bundle.index.get("pages"))
 
 
-def locate(bundle: option1.Bundle, block: dict | None, raw: str | None) -> tuple[list[dict] | None, bool]:
-    """(`raw_grounding`, whether a web page's text quote was checked unique on the saved page)."""
+def locate(bundle: option1.Bundle, block: dict | None, raw: str | None) -> Located:
+    """The value's own words in `block` (see `Located`)."""
     if block is None:
-        return None, False
+        return Located(None)
     found = occurrences(bundle, block, raw or "")
     if len(found) != 1:
-        return None, False
+        return Located(None)
     if paged(bundle):
-        return _line_boxes(found[0]) or None, False
+        if ocr(bundle):
+            return _ocr_located(bundle, found[0])
+        return Located(_line_boxes(found[0]) or None)
     location, unique = _html_location(bundle, block, found[0])
-    return ([location] if location else None), unique
+    return Located([location] if location else None, unique)
 
 
 def raw_grounding(bundle: option1.Bundle, block: dict | None, raw: str | None) -> list[dict] | None:
     """The Locations of the words that print `raw` in `block`: for a PDF or an image one `{page, box}` per line they
-    sit on, for a web page one `html` Location. None when raw is not among the block's words, or printed there more
-    than once (which one the value is cannot be told, so neither is marked)."""
-    return locate(bundle, block, raw)[0]
+    sit on (on an OCR'd page, read off the page's ink), for a web page one `html` Location. None when raw is not among
+    the block's words, or printed there more than once (which one the value is cannot be told, so neither is marked),
+    or, on an OCR'd page, when its words could not be told apart from the rest of their line."""
+    return locate(bundle, block, raw).words
 
 
 def not_located(bundle: option1.Bundle | None, block: dict | None, raw: str | None) -> str:
@@ -428,26 +596,28 @@ def cell_selector(grounding: list | dict | None) -> str | None:
 
 def where(row: dict, bundle: option1.Bundle | None = None) -> Where:
     """Where one values.json (or effective-record) row is printed: its own words when they were located (the row's
-    `raw_grounding`, else found now in `bundle`), else its cited block, else nothing. A human-added row with its own
-    grounding counts as its words."""
+    `raw_grounding`, else found now in `bundle`), else (an OCR'd page) the line that prints them, else its cited block,
+    else nothing. A human-added row with its own grounding counts as its words."""
     cite_id = (row.get("cite") or {}).get("id")
     block = bundle.blocks.get(cite_id) if bundle is not None and cite_id else None
-    locations, checked = row.get("raw_grounding"), False
+    found = Located(row.get("raw_grounding"))
     if block is not None and not row.get("human"):
         # WHY found again when the bundle is here: the row's raw may have been edited since extraction, and only the
         # saved page can say whether a quote is unique
-        locations, checked = locate(bundle, block, row.get("raw"))
-    if locations:
-        found = selector(locations, checked)
+        found = locate(bundle, block, row.get("raw"))
+    if found.words:
+        located = selector(found.words, found.quote_checked)
         wider = _wider_note(bundle, block, row.get("raw")) if block is not None and not row.get("human") else None
-        return dataclasses.replace(found, note="; ".join(filter(None, (found.note, wider))) or None) if wider else found
+        return dataclasses.replace(located, note="; ".join(filter(None, (located.note, wider))) or None) if wider else located
     if row.get("human"):
         own = cell_selector(row.get("grounding"))
         return Where(own, "words") if own else Where(None, "none", "added by hand with no location")
+    if found.lines:
+        return Where(_page_box(found.lines).compact(), "line", found.why)
     cell = cell_selector(row.get("grounding"))
     if cell is None:
         return Where(None, "none", "no location was recorded")
-    return Where(cell, "cell", not_located(bundle, block, row.get("raw")))
+    return Where(cell, "cell", found.why or not_located(bundle, block, row.get("raw")))
 
 
 # --- labels -----------------------------------------------------------------------------------------------------------
