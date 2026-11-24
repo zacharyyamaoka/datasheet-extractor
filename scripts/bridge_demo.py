@@ -8,10 +8,14 @@ robot_models; then draw every `where` box on its page render and read the PDF's 
 
     uv run python scripts/bridge_demo.py --out DIR [--shots DIR]
 
-Cases: the synthetic KM45-10 spec table as a PDF and as an image, a prose paragraph (tests/fixtures/bundles/), and,
-when this machine still has the 2026-10-29 eval cache, DEEP Robotics' real J60 Joint PDF (a maker's datasheet: its
-crops stay local, never committed). Each case saves one crop of one value: red is the value's `where`, blue dashed the
-cited cell or block it was narrowed from.
+Cases: the synthetic KM45-10 spec table as a PDF and as an image, the KM60-6 spec list as an image, a prose paragraph
+(tests/fixtures/bundles/), and, when this machine still has the 2026-10-29 eval cache, DEEP Robotics' real J60 Joint
+PDF (a scanned maker's datasheet: its crops stay local, never committed). Each case saves one crop of one value: red
+is the value's `where`, blue dashed the cited cell or block it was narrowed from.
+
+What each box is checked against, never Markdownify's own word index: a PDF's text layer; for a synthetic image, the
+text layer of its twin PDF (the harness printed it from the same layout, tests/fixtures/bundles/README.md); for the
+scanned J60 sheet, which has no text anywhere, the page's ink (no box edge runs through a glyph).
 """
 
 from __future__ import annotations
@@ -46,12 +50,17 @@ FIELDS = fields_module.load(ROOT / "fields" / "actuator.json")
 RENDER_SCALE = 4          # PDF points to pixels: 288 dpi, enough to read a 7 pt table
 
 
+TWINS = {"12-full-datasheet-png": BUNDLES / "12-full-datasheet-pdf" / "source.pdf",
+         "02-spec-list-png": BUNDLES / "02-spec-list-png" / "twin.pdf"}
+
+
 def fixture_case(label: str, folder: str, focus: str) -> dict:
     directory = BUNDLES / folder
     case = json.loads((directory / "case.json").read_text(encoding="utf-8"))
     made = json.loads((directory / "source.json").read_text(encoding="utf-8"))
     retrieval = made["retrievals"][-1]
     return {"label": label, "bundle": directory, "reply": json.loads((directory / "reply.json").read_text()),
+            "twin": TWINS.get(folder),
             "part_model": case["part_model"], "model": case["model"], "focus": focus,
             "source": {"sha256": made["sha256"], "url": retrieval["url"], "retrieved_at": retrieval["retrieved_at"]}}
 
@@ -139,17 +148,26 @@ def text_in(source: pathlib.Path, box: PageBox) -> str | None:
         return "".join(c["text"] for c in sorted(chars, key=lambda c: (round(c["top"]), c["x0"])))
 
 
-def words_in(bundle: option1.Bundle, box: PageBox) -> str:
-    """The bundle's (OCR'd) words whose box centre is inside `box`: the check for a page with no text layer."""
-    found = []
-    for word in bundle.index.get("words") or []:
-        grounding = word["grounding"]
-        if grounding.get("page") != box.page:
-            continue
-        x0, y0, x1, y1 = grounding["box"]
-        if box.x <= (x0 + x1) / 2 <= box.x + box.w and box.y <= (y0 + y1) / 2 <= box.y + box.h:
-            found.append(option1.plain(bundle.markdown[word["range"]["start"]:word["range"]["end"]]))
-    return " ".join(found)
+def cut_edges(image: Image.Image, box: PageBox) -> list[str]:
+    """Which edge of the box runs through ink: the column just inside it and the one just outside it both inked in the
+    box's rows. Ink is a pixel far (> 90 grey levels) from the band's median, either polarity (J60 prints white on
+    black); rows inked across most of the band are table rulings, not glyphs."""
+    grey = image.convert("L")
+    width, height = grey.size
+    top, bottom = int(box.y * height), int((box.y + box.h) * height) + 1
+    pixels = grey.crop((0, top, width, bottom)).tobytes()
+    rows = [pixels[row * width:(row + 1) * width] for row in range(bottom - top)]
+    background = sorted(pixels)[len(pixels) // 2]
+    inked = [[abs(value - background) > 90 for value in row] for row in rows]
+    inked = [row for row in inked if sum(row) <= 0.3 * width]
+    columns = [any(row[column] for row in inked) for column in range(width)]
+    left, right = int(box.x * width), int((box.x + box.w) * width)
+    cut = []
+    if left > 0 and columns[left] and columns[left - 1]:
+        cut.append("left")
+    if right < width - 1 and columns[right] and columns[right - 1]:
+        cut.append("right")
+    return cut
 
 
 def squash(text: str) -> str:
@@ -194,11 +212,14 @@ def main(argv: list[str] | None = None) -> int:
     shots = arguments.shots or arguments.out
     arguments.out.mkdir(parents=True, exist_ok=True)
     shots.mkdir(parents=True, exist_ok=True)
+    # WHY these image values: 'CAN H' (inside the OCR line 'Yellow: CAN H') and '76 mm' (inside 'Outer diameter:
+    # 76 mm') are two the character-count slices cut a glyph off (independent check, 2026-11-24)
     cases = [j60_case(), fixture_case("table-pdf", "12-full-datasheet-pdf", "peak_torque"),
-             fixture_case("image", "12-full-datasheet-png", "mass"),
-             fixture_case("prose-pdf", "01-prose-spec-pdf", "rated_torque")]
+             fixture_case("image", "12-full-datasheet-png", "buses"),
+             fixture_case("prose-pdf", "01-prose-spec-pdf", "rated_torque"),
+             fixture_case("image-list", "02-spec-list-png", "outer_diameter")]
     cases = [case for case in cases if case is not None]
-    failures = wider_count = exact_count = 0
+    failures = wider_count = exact_count = line_count = ink_count = 0
     for number, case in enumerate(cases, 1):
         home = pathlib.Path(tempfile.mkdtemp(prefix="bridge-demo-"))
         try:
@@ -224,26 +245,42 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {loaded}")
         rows = {row["key"]: row for row in values["values"] if row["verdict"] == "kept"}
         renders: dict[int, Image.Image] = {}
+        notes = notes_of(answer["text"])
         for key, where in wheres_of(answer["text"]).items():
             selector = parse(where)
             if not isinstance(selector, PageBox):
                 continue
             row = rows.get(key) or rows.get(f"spec.{key}") or {}
+            image = renders.setdefault(selector.page, page_image(raw, selector.page))
+            note = notes.get(key) or ""
             printed, what = text_in(raw, selector), "text layer"
+            if printed is None and case.get("twin"):
+                printed, what = text_in(case["twin"], selector), "twin PDF's text layer"
+            wanted = squash(option1.plain(row.get("raw") or "")).replace("–", "-")
             if printed is None:
-                printed, what = words_in(bundle, selector), "OCR words (no text layer)"
-            wider = "prints it inside" in (notes_of(answer["text"]).get(key) or "")
-            if squash(printed) == squash(option1.plain(row.get("raw") or "")):
+                # a scanned page with no twin: no text to read anywhere, so the ink is the check
+                cut = cut_edges(page_image(raw, selector.page), selector)
+                if cut:
+                    verdict = f"MISMATCH: the box's {' and '.join(cut)} edge runs through ink"
+                    failures += 1
+                else:
+                    verdict = "no text layer anywhere: both box edges fall between glyphs on the page's ink"
+                    ink_count += 1
+            elif "line is marked" in note:
+                verdict = f"{what} inside the line box = {printed!r}, which holds raw (its note: the line is marked)"
+                ok = wanted in squash(printed).replace("–", "-")
+                line_count += ok
+                failures += not ok
+            elif squash(printed).replace("–", "-") == wanted:
                 verdict = f"{what} inside the box = {printed!r} = raw"
                 exact_count += 1
-            elif wider and squash(option1.plain(row.get("raw") or "")) in squash(printed):
+            elif "prints it inside" in note and wanted in squash(printed).replace("–", "-"):
                 verdict = f"{what} inside the box = {printed!r}, which holds raw {row.get('raw')!r} (its note says so)"
                 wider_count += 1
             else:
                 verdict = f"MISMATCH: {what} inside the box = {printed!r}, raw = {row.get('raw')!r}"
                 failures += 1
             print(f"  {key:18} {where:44} {verdict}")
-            image = renders.setdefault(selector.page, page_image(raw, selector.page))
             draw = ImageDraw.Draw(image)
             width, height = image.size
             draw.rectangle([selector.x * width, selector.y * height, (selector.x + selector.w) * width,
@@ -262,7 +299,8 @@ def main(argv: list[str] | None = None) -> int:
             crop(page_image(raw, selector.page), selector, cell, caption).save(shot)
             print(f"  crop: {shot}")
     print(f"\n{exact_count} boxes hold exactly their raw; {wider_count} hold a longer printed word around it (said in "
-          f"their notes); {failures} disagree")
+          f"their notes); {line_count} mark the line (said in their notes); {ink_count} on a scanned page cut no glyph; "
+          f"{failures} disagree")
     return 1 if failures else 0
 
 
