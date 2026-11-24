@@ -1,0 +1,56 @@
+{
+ "part": {
+  "manufacturer": {
+   "value": "",
+   "raw": "",
+   "id": ""
+  },
+  "model": {
+   "value": "KM80-9",
+   "raw": "KM80-9",
+   "id": "heading-1"
+  }
+ },
+ "values": [
+  {
+   "key": "pole_pairs",
+   "value": "21",
+   "unit": "",
+   "raw": "21 pole pairs",
+   "condition": "",
+   "id": "paragraph-1"
+  },
+  {
+   "key": "gear_ratio",
+   "value": "9",
+   "unit": ":1",
+   "raw": "9:1",
+   "condition": "",
+   "id": "paragraph-1"
+  },
+  {
+   "key": "rated_torque",
+   "value": "9",
+   "unit": "N·m",
+   "raw": "rated torque of 9 N·m",
+   "condition": "at 48 V",
+   "id": "paragraph-1"
+  },
+  {
+   "key": "peak_torque",
+   "value": "18",
+   "unit": "N·m",
+   "raw": "peak torque of 18 N·m",
+   "condition": "at 48 V",
+   "id": "paragraph-1"
+  },
+  {
+   "key": "buses",
+   "value": "can",
+   "unit": "",
+   "raw": "CAN 2.0B",
+   "condition": "",
+   "id": "paragraph-2"
+  }
+ ]
+}

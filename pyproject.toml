@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "pdfplumber>=0.11.10",
+    "source-msgs",
 ]
 
 [build-system]
@@ -19,6 +20,11 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.2.0",
 ]
+
+[tool.uv.sources]
+# WHY source_msgs (source-highlighter PEP 0001, stdlib only): a value's `where` is written with its selectors' own
+# compact(), so what Copy as Spec emits is what robotparts' test_every_where_is_a_source_msgs_selector parses.
+source-msgs = { git = "https://github.com/zacharyyamaoka/source-highlighter", subdirectory = "packages/source_msgs" }
 
 [project.scripts]
 extract = "datasheet_extractor.cli:main"

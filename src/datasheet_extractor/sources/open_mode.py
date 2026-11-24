@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 
-from .. import option1
+from .. import locate, option1
 from ..values import Verdict, cross_check, normal, printed_numbers
 
 SYSTEM_PROMPT = """You read manufacturers' datasheets. The datasheet below was converted to markdown, and every \
@@ -134,8 +134,10 @@ def check_value(row: dict, bundle: option1.Bundle, part_model: str | None, grids
         own_label = grid.own_label(block)
         if _named(label, [own_label] if own_label else []):
             label_texts, model_axes = [own_label], [("column", col_texts)]
+            cite["label_ids"] = [grid.own_label_cell(block)["id"]]
         elif _named(label, col_texts):
             label_texts, model_axes = col_texts, [("row", row_texts)]
+            cite["label_ids"] = [other["id"] for other in grid.column_header_cells(block)]
         else:
             reasons.append(f"the label {label!r} is neither the row label {own_label!r} nor the column header "
                            f"{' / '.join(col_texts)!r}")
@@ -182,6 +184,7 @@ def judge(output: dict | None, bundle: option1.Bundle, part_model: str | None) -
     grids: dict = {}
     verdicts = [check_value(row, bundle, part_model, grids) for row in (output or {}).get("values") or []]
     cross_check(verdicts)
+    locate.attach(verdicts, bundle)
     part = (output or {}).get("part") or {}
     return verdicts, {"manufacturer": option1.check_part(part.get("manufacturer"), bundle),
                       "model": option1.check_part(part.get("model"), bundle)}

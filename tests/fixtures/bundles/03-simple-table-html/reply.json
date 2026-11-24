@@ -1,0 +1,80 @@
+{
+ "part": {
+  "manufacturer": {
+   "value": "",
+   "raw": "",
+   "id": ""
+  },
+  "model": {
+   "value": "KM70-10",
+   "raw": "KM70-10",
+   "id": "heading-1"
+  }
+ },
+ "values": [
+  {
+   "key": "nominal_voltage",
+   "value": "24",
+   "unit": "V",
+   "raw": "24 V",
+   "condition": "",
+   "id": "table_cell-7"
+  },
+  {
+   "key": "rated_torque",
+   "value": "8.3",
+   "unit": "N·m",
+   "raw": "8.3 N·m",
+   "condition": "at 24 V",
+   "id": "table_cell-9"
+  },
+  {
+   "key": "peak_torque",
+   "value": "24.8",
+   "unit": "N·m",
+   "raw": "24.8 N·m",
+   "condition": "at 24 V",
+   "id": "table_cell-11"
+  },
+  {
+   "key": "rated_speed",
+   "value": "145",
+   "unit": "rpm",
+   "raw": "145 rpm",
+   "condition": "at 24 V",
+   "id": "table_cell-13"
+  },
+  {
+   "key": "max_output_speed",
+   "value": "310",
+   "unit": "rpm",
+   "raw": "310 rpm",
+   "condition": "no-load, at 24 V",
+   "id": "table_cell-15"
+  },
+  {
+   "key": "gear_ratio",
+   "value": "10",
+   "unit": ":1",
+   "raw": "10:1",
+   "condition": "",
+   "id": "table_cell-19"
+  },
+  {
+   "key": "backlash",
+   "value": "0.15",
+   "unit": "deg",
+   "raw": "0.15°",
+   "condition": "",
+   "id": "table_cell-21"
+  },
+  {
+   "key": "mass",
+   "value": "521",
+   "unit": "g",
+   "raw": "521 g",
+   "condition": "",
+   "id": "table_cell-23"
+  }
+ ]
+}

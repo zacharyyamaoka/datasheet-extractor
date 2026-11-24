@@ -1,0 +1,312 @@
+{
+ "schema": "extractor/values@0",
+ "source": {
+  "sha256": "d92af90c339730e04bfb3b03cbf5b1ce0652f4cc23103a0d46d19a8d010fc576",
+  "url": "https://example.com/km-series/03-simple-table.html",
+  "retrieved_at": null
+ },
+ "extractor": {
+  "tool": "datasheet-extractor",
+  "version": "0.1.0",
+  "model": "claude-opus-5-5 via 2.1.311 (Claude Code)",
+  "pipeline": "option1"
+ },
+ "part": {
+  "manufacturer": null,
+  "model": {
+   "value": "KM70-10",
+   "raw": "KM70-10",
+   "cite": {
+    "id": "heading-1"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1101,
+       "end": 1160
+      },
+      "xpath": "/html/body/main/h1"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "id": "part.model@heading-1"
+  }
+ },
+ "values": [
+  {
+   "key": "nominal_voltage",
+   "value": 24,
+   "unit": "V",
+   "raw": "24 V",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-7",
+    "row": "Rated voltage",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1365,
+       "end": 1378
+      },
+      "xpath": "/html/body/main/table/tbody/tr[1]/td[2]"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "nominal_voltage",
+    "value": "24",
+    "unit": "V",
+    "raw": "24 V",
+    "condition": "",
+    "id": "table_cell-7"
+   },
+   "id": "nominal_voltage@table_cell-7"
+  },
+  {
+   "key": "rated_torque",
+   "value": 8.3,
+   "unit": "N·m",
+   "raw": "8.3 N·m",
+   "condition": "at 24 V",
+   "cite": {
+    "id": "table_cell-9",
+    "row": "Rated torque",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1425,
+       "end": 1441
+      },
+      "xpath": "/html/body/main/table/tbody/tr[2]/td[2]"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "rated_torque",
+    "value": "8.3",
+    "unit": "N·m",
+    "raw": "8.3 N·m",
+    "condition": "at 24 V",
+    "id": "table_cell-9"
+   },
+   "id": "rated_torque@table_cell-9"
+  },
+  {
+   "key": "peak_torque",
+   "value": 24.8,
+   "unit": "N·m",
+   "raw": "24.8 N·m",
+   "condition": "at 24 V",
+   "cite": {
+    "id": "table_cell-11",
+    "row": "Peak torque",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1486,
+       "end": 1503
+      },
+      "xpath": "/html/body/main/table/tbody/tr[3]/td[2]"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "peak_torque",
+    "value": "24.8",
+    "unit": "N·m",
+    "raw": "24.8 N·m",
+    "condition": "at 24 V",
+    "id": "table_cell-11"
+   },
+   "id": "peak_torque@table_cell-11"
+  },
+  {
+   "key": "rated_speed",
+   "value": 145,
+   "unit": "rpm",
+   "raw": "145 rpm",
+   "condition": "at 24 V",
+   "cite": {
+    "id": "table_cell-13",
+    "row": "Rated speed",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1549,
+       "end": 1565
+      },
+      "xpath": "/html/body/main/table/tbody/tr[4]/td[2]"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "rated_speed",
+    "value": "145",
+    "unit": "rpm",
+    "raw": "145 rpm",
+    "condition": "at 24 V",
+    "id": "table_cell-13"
+   },
+   "id": "rated_speed@table_cell-13"
+  },
+  {
+   "key": "max_output_speed",
+   "value": 310,
+   "unit": "rpm",
+   "raw": "310 rpm",
+   "condition": "no-load, at 24 V",
+   "cite": {
+    "id": "table_cell-15",
+    "row": "No-load speed",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1612,
+       "end": 1628
+      },
+      "xpath": "/html/body/main/table/tbody/tr[5]/td[2]"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "max_output_speed",
+    "value": "310",
+    "unit": "rpm",
+    "raw": "310 rpm",
+    "condition": "no-load, at 24 V",
+    "id": "table_cell-15"
+   },
+   "id": "max_output_speed@table_cell-15"
+  },
+  {
+   "key": "gear_ratio",
+   "value": 10,
+   "unit": ":1",
+   "raw": "10:1",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-19",
+    "row": "Gear ratio",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1734,
+       "end": 1747
+      },
+      "xpath": "/html/body/main/table/tbody/tr[7]/td[2]"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "gear_ratio",
+    "value": "10",
+    "unit": ":1",
+    "raw": "10:1",
+    "condition": "",
+    "id": "table_cell-19"
+   },
+   "id": "gear_ratio@table_cell-19"
+  },
+  {
+   "key": "backlash",
+   "value": 0.15,
+   "unit": "deg",
+   "raw": "0.15°",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-21",
+    "row": "Backlash",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1790,
+       "end": 1804
+      },
+      "xpath": "/html/body/main/table/tbody/tr[8]/td[2]"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "backlash",
+    "value": "0.15",
+    "unit": "deg",
+    "raw": "0.15°",
+    "condition": "",
+    "id": "table_cell-21"
+   },
+   "id": "backlash@table_cell-21"
+  },
+  {
+   "key": "mass",
+   "value": 521,
+   "unit": "g",
+   "raw": "521 g",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-23",
+    "row": "Weight",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "html": {
+      "source_range": {
+       "start": 1844,
+       "end": 1858
+      },
+      "xpath": "/html/body/main/table/tbody/tr[9]/td[2]"
+     }
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "mass",
+    "value": "521",
+    "unit": "g",
+    "raw": "521 g",
+    "condition": "",
+    "id": "table_cell-23"
+   },
+   "id": "mass@table_cell-23"
+  }
+ ]
+}

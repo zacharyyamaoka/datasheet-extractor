@@ -1,0 +1,13 @@
+{
+ "sha256": "7af83165c71e4fcdd1c86efe390f3bed582691e2175f00f4ce4eb6307183e0ef",
+ "bytes": 22106,
+ "media_type": "application/pdf",
+ "retrievals": [
+  {
+   "url": "https://example.com/km-series/01-prose-spec.pdf",
+   "final_url": "https://example.com/km-series/01-prose-spec.pdf",
+   "retrieved_at": "2026-10-29T21:03:09Z",
+   "http_status": null
+  }
+ ]
+}

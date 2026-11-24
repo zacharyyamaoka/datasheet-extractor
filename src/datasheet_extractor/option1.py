@@ -196,11 +196,16 @@ class Grid:
         column sits between the label and the value, and the nearest non-value cell was the unit, so every row of the
         page read 'V', 'N.M', 'RPM' as its label and the checker dropped all of them. Only a unit is skipped, never a
         word: 'Noise' in 'Weight g | 140 | Noise | 60' still ends the walk, so the 60 is not the weight."""
+        label = self.own_label_cell(cell)
+        return self.texts[label["id"]] if label is not None else None
+
+    def own_label_cell(self, cell: dict) -> dict | None:
+        """The cell `own_label` reads, or None."""
         row, col = cell["row"], cell["col"]
         for c in range(col - 1, -1, -1):
             other = self.at.get((row, c))
             if other and other is not cell and self._label_like(other):
-                return self.texts[other["id"]]
+                return other
         return None
 
     def own_units(self, cell: dict) -> list[str]:
@@ -238,13 +243,17 @@ class Grid:
 
     def column_headers(self, cell: dict) -> list[str]:
         """The column header cells over `cell`, top-down (a merged 'Torque' over 'Rated')."""
+        return [self.texts[other["id"]] for other in self.column_header_cells(cell)]
+
+    def column_header_cells(self, cell: dict) -> list[dict]:
+        """The cells `column_headers` reads, top-down."""
         out, seen = [], set()
         for col in range(cell["col"], cell["col"] + cell.get("colspan", 1)):
             for row in range(min(self.header_rows, cell["row"])):
                 other = self.at.get((row, col))
                 if other and other["id"] not in seen and self.texts[other["id"]]:
                     seen.add(other["id"])
-                    out.append(self.texts[other["id"]])
+                    out.append(other)
         return out
 
     def designations(self, axis: str) -> set[str]:
@@ -370,10 +379,17 @@ def check_value(row: dict, fields: dict[str, Field], bundle: Bundle, part_model:
         on_row = header_label(field, [own_label]) if own_label else None
         on_col = header_label(field, col_texts)
         marked = any(re.search(mark, own) for mark in field.marks)
+        # WHY the label's cells are named in the cite (`label_ids`): a Stated's `as_written` is the label as the
+        # source prints it (locate.attach reads it from these cells), never the checker's normalised text
+        header_cells = grid.column_header_cells(block)
+        own_cell = grid.own_label_cell(block)
         if on_row is not None:
             label_text, model_axes = on_row, [("column", col_texts)]
+            cite["label_ids"] = [own_cell["id"]]
         elif on_col is not None:
             label_text, model_axes = on_col, [("row", row_texts)]
+            one = [other["id"] for other in header_cells if grid.texts[other["id"]] == on_col]
+            cite["label_ids"] = one[:1] or [other["id"] for other in header_cells]
         elif marked or (own_label and col_texts and (header_label(field, [" ".join([own_label] + col_texts)])
                                                        or header_label(field, [" ".join(col_texts + [own_label])]))):
             # WHY: a diameter sign labels its own cell ('Ø51×24.5' in a 'Size mm' row), and a label split over both
@@ -381,6 +397,9 @@ def check_value(row: dict, fields: dict[str, Field], bundle: Bundle, part_model:
             # neither axis is spent on the label alone, so any axis that lists models must name this one.
             label_text = " ".join([own] + row_texts + col_texts)
             model_axes = [("row", row_texts), ("column", col_texts)]
+            ids = ([own_cell["id"]] if own_cell else []) + ([] if marked else [other["id"] for other in header_cells])
+            if ids:
+                cite["label_ids"] = ids
         else:
             reasons.append(f"neither the row label {own_label!r} nor the column header "
                            f"{' / '.join(col_texts)!r} carries one of {key!r}'s labels")
@@ -509,9 +528,11 @@ def build_prompt(bundle: Bundle, fields: tuple[Field, ...], part_model: str | No
 
 def judge(output: dict | None, fields: tuple[Field, ...], bundle: Bundle, part_model: str | None) -> tuple[list[Verdict], dict]:
     rows = list((output or {}).get("values") or [])
+    from . import locate                          # WHY here: locate reads Bundle, so it imports this module
     lookup, grids = by_key(fields), {}
     verdicts = [check_value(row, lookup, bundle, part_model, grids) for row in rows]
     cross_check(verdicts)
+    locate.attach(verdicts, bundle)
     part = (output or {}).get("part") or {}
     return verdicts, {"manufacturer": check_part(part.get("manufacturer"), bundle),
                       "model": check_part(part.get("model"), bundle)}

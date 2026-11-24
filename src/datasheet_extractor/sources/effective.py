@@ -14,7 +14,8 @@
   against an earlier extraction) is listed in `unmatched`, never applied to a different value.
 
 A published datasheet is one product's view: its assigned rows, rejected ones and the checker's dropped ones left
-out, every value still carrying its grounding and who stands behind it (`provenance`).
+out, every value still carrying its grounding (and `raw_grounding`, its own words, when they were located) and who
+stands behind it (`provenance`). An edit to `raw` or `grounding` clears `raw_grounding`: it marked the old text.
 """
 
 from __future__ import annotations
@@ -25,7 +26,8 @@ from .. import option1
 
 EDITABLE = ("key", "value", "unit", "raw", "condition", "grounding")
 OPS = ("edit", "reject", "restore", "add", "assign", "unassign", "map")
-_AI_FIELDS = ("key", "value", "unit", "raw", "condition", "cite", "grounding", "verdict", "reasons", "part_models")
+_AI_FIELDS = ("key", "value", "unit", "raw", "condition", "cite", "grounding", "raw_grounding", "verdict", "reasons",
+              "part_models")
 
 
 def value_ids(values: dict | None, review: dict | None = None) -> set[str]:
@@ -115,6 +117,9 @@ def effective(values: dict | None, review: dict | None, extracted_at: str | None
             if not row["human"] and field not in row.setdefault("ai", {}):
                 row["ai"][field] = copy.deepcopy(row.get(field))
             row[field] = copy.deepcopy(op.get("to"))
+            if field in ("raw", "grounding") and row.get("raw_grounding") is not None:
+                # WHY: the words were found for the AI's raw in the AI's block; after an edit they mark the old text
+                row["raw_grounding"] = None
             row["provenance"] = dict(who)
             if op.get("note"):
                 row["note"] = op["note"]
@@ -149,8 +154,11 @@ def published(product_id: str, record: dict, source: dict) -> dict:
         provenance = dict(row["provenance"])
         if row.get("ai"):
             provenance["ai"] = copy.deepcopy(row["ai"])
-        values.append({"id": row["id"], "key": row["key"], "value": row["value"], "unit": row["unit"],
-                       "raw": row["raw"], "grounding": row["grounding"], "provenance": provenance})
+        value = {"id": row["id"], "key": row["key"], "value": row["value"], "unit": row["unit"], "raw": row["raw"],
+                 "grounding": row["grounding"]}
+        if row.get("raw_grounding"):
+            value["raw_grounding"] = row["raw_grounding"]
+        values.append(value | {"provenance": provenance})
     return {"product": product_id,
             "source": {name: (source or {}).get(name) for name in ("sha256", "url", "retrieved_at")},
             "values": values}

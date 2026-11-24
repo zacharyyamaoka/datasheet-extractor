@@ -1,0 +1,88 @@
+{
+ "part": {
+  "manufacturer": {
+   "value": "",
+   "raw": "",
+   "id": ""
+  },
+  "model": {
+   "value": "KM45-10",
+   "raw": "KM45-10",
+   "id": "heading-1"
+  }
+ },
+ "values": [
+  {
+   "key": "nominal_voltage",
+   "value": "24",
+   "unit": "V",
+   "raw": "24 V",
+   "condition": "",
+   "id": "table_cell-8"
+  },
+  {
+   "key": "rated_torque",
+   "value": "1.6",
+   "unit": "N·m",
+   "raw": "1.6 N·m",
+   "condition": "at 25 °C ambient, housing on aluminium plate",
+   "id": "table_cell-10"
+  },
+  {
+   "key": "peak_torque",
+   "value": "4.8",
+   "unit": "N·m",
+   "raw": "4.8 N·m",
+   "condition": "",
+   "id": "table_cell-12"
+  },
+  {
+   "key": "rated_speed",
+   "value": "260",
+   "unit": "rpm",
+   "raw": "260 rpm",
+   "condition": "",
+   "id": "table_cell-14"
+  },
+  {
+   "key": "gear_ratio",
+   "value": "10",
+   "unit": ":1",
+   "raw": "10:1",
+   "condition": "",
+   "id": "table_cell-16"
+  },
+  {
+   "key": "mass",
+   "value": "185",
+   "unit": "g",
+   "raw": "185 g",
+   "condition": "",
+   "id": "table_cell-18"
+  },
+  {
+   "key": "voltage_min",
+   "value": "18",
+   "unit": "V",
+   "raw": "18–28 V",
+   "condition": "",
+   "id": "paragraph-21"
+  },
+  {
+   "key": "voltage_max",
+   "value": "28",
+   "unit": "V",
+   "raw": "18–28 V",
+   "condition": "",
+   "id": "paragraph-21"
+  },
+  {
+   "key": "buses",
+   "value": "can",
+   "unit": "",
+   "raw": "CAN H",
+   "condition": "",
+   "id": "paragraph-25"
+  }
+ ]
+}

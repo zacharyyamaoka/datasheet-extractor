@@ -1,0 +1,7 @@
+{
+ "part_model": "KM80-9",
+ "fields": "fields/actuator.json",
+ "model": "claude-opus-5-5",
+ "recorded": "~/.cache/datasheet-extractor/eval/synthetic/01-prose-spec/pdf/KM80-9/option1-claude (2026-10-29, rejudged 2026-11-05)",
+ "harness_case": "/home/bam/markdownify/harness/cases/01-prose-spec/source.md"
+}

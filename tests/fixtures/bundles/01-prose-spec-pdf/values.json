@@ -1,0 +1,204 @@
+{
+ "schema": "extractor/values@0",
+ "source": {
+  "sha256": "7af83165c71e4fcdd1c86efe390f3bed582691e2175f00f4ce4eb6307183e0ef",
+  "url": "https://example.com/km-series/01-prose-spec.pdf",
+  "retrieved_at": null
+ },
+ "extractor": {
+  "tool": "datasheet-extractor",
+  "version": "0.1.0",
+  "model": "claude-opus-5-5 via 2.1.311 (Claude Code)",
+  "pipeline": "option1"
+ },
+ "part": {
+  "manufacturer": null,
+  "model": {
+   "value": "KM80-9",
+   "raw": "KM80-9",
+   "cite": {
+    "id": "heading-1"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.07843,
+      0.07492,
+      0.51697,
+      0.08428
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "id": "part.model@heading-1"
+  }
+ },
+ "values": [
+  {
+   "key": "pole_pairs",
+   "value": 21,
+   "unit": "",
+   "raw": "21 pole pairs",
+   "condition": null,
+   "cite": {
+    "id": "paragraph-1"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.07843,
+      0.11017,
+      0.9084,
+      0.15169
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "pole_pairs",
+    "value": "21",
+    "unit": "",
+    "raw": "21 pole pairs",
+    "condition": "",
+    "id": "paragraph-1"
+   },
+   "id": "pole_pairs@paragraph-1"
+  },
+  {
+   "key": "gear_ratio",
+   "value": 9,
+   "unit": ":1",
+   "raw": "9:1",
+   "condition": null,
+   "cite": {
+    "id": "paragraph-1"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.07843,
+      0.11017,
+      0.9084,
+      0.15169
+     ]
+    }
+   ],
+   "verdict": "dropped",
+   "reasons": [
+    "9 is not tied to a row label of gear_ratio: its label names pole_pairs"
+   ],
+   "proposed": {
+    "key": "gear_ratio",
+    "value": "9",
+    "unit": ":1",
+    "raw": "9:1",
+    "condition": "",
+    "id": "paragraph-1"
+   },
+   "id": "gear_ratio@paragraph-1"
+  },
+  {
+   "key": "rated_torque",
+   "value": 9,
+   "unit": "N·m",
+   "raw": "rated torque of 9 N·m",
+   "condition": "at 48 V",
+   "cite": {
+    "id": "paragraph-1"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.07843,
+      0.11017,
+      0.9084,
+      0.15169
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "rated_torque",
+    "value": "9",
+    "unit": "N·m",
+    "raw": "rated torque of 9 N·m",
+    "condition": "at 48 V",
+    "id": "paragraph-1"
+   },
+   "id": "rated_torque@paragraph-1"
+  },
+  {
+   "key": "peak_torque",
+   "value": 18,
+   "unit": "N·m",
+   "raw": "peak torque of 18 N·m",
+   "condition": "at 48 V",
+   "cite": {
+    "id": "paragraph-1"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.07843,
+      0.11017,
+      0.9084,
+      0.15169
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "peak_torque",
+    "value": "18",
+    "unit": "N·m",
+    "raw": "peak torque of 18 N·m",
+    "condition": "at 48 V",
+    "id": "paragraph-1"
+   },
+   "id": "peak_torque@paragraph-1"
+  },
+  {
+   "key": "buses",
+   "value": [
+    "can"
+   ],
+   "unit": "",
+   "raw": "CAN 2.0B",
+   "condition": null,
+   "cite": {
+    "id": "paragraph-2"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.07843,
+      0.17267,
+      0.91661,
+      0.21419
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "buses",
+    "value": "can",
+    "unit": "",
+    "raw": "CAN 2.0B",
+    "condition": "",
+    "id": "paragraph-2"
+   },
+   "id": "buses@paragraph-2"
+  }
+ ]
+}

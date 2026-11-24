@@ -1,0 +1,346 @@
+{
+ "schema": "extractor/values@0",
+ "source": {
+  "sha256": "129ba6a1333daf05eee93cd56cfd5fa53c06d0d0040874b0c8fa08b5ac5ad01b",
+  "url": "https://example.com/km-series/12-full-datasheet.png",
+  "retrieved_at": null
+ },
+ "extractor": {
+  "tool": "datasheet-extractor",
+  "version": "0.1.0",
+  "model": "claude-opus-5-5 via 2.1.311 (Claude Code)",
+  "pipeline": "option1"
+ },
+ "part": {
+  "manufacturer": null,
+  "model": {
+   "value": "KM45-10",
+   "raw": "KM45-10",
+   "cite": {
+    "id": "heading-1"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.07617,
+      0.063,
+      0.56055,
+      0.0877
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "id": "part.model@heading-1"
+  }
+ },
+ "values": [
+  {
+   "key": "nominal_voltage",
+   "value": 24,
+   "unit": "V",
+   "raw": "24 V",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-4",
+    "row": "Rated voltage",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.21745,
+      0.19052,
+      0.26107,
+      0.20716
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "nominal_voltage",
+    "value": "24",
+    "unit": "V",
+    "raw": "24 V",
+    "condition": "",
+    "id": "table_cell-4"
+   },
+   "id": "nominal_voltage@table_cell-4"
+  },
+  {
+   "key": "rated_torque",
+   "value": 1.6,
+   "unit": "N·m",
+   "raw": "1.6 N·m",
+   "condition": "at 25 °C ambient, housing on aluminium plate",
+   "cite": {
+    "id": "table_cell-6",
+    "row": "Rated torque 1",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.21875,
+      0.21573,
+      0.28711,
+      0.23135
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "rated_torque",
+    "value": "1.6",
+    "unit": "N·m",
+    "raw": "1.6 N·m",
+    "condition": "at 25 °C ambient, housing on aluminium plate",
+    "id": "table_cell-6"
+   },
+   "id": "rated_torque@table_cell-6"
+  },
+  {
+   "key": "peak_torque",
+   "value": 4.8,
+   "unit": "N·m",
+   "raw": "4.8 N·m",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-8",
+    "row": "Peak torque",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.21875,
+      0.23942,
+      0.28646,
+      0.25504
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "peak_torque",
+    "value": "4.8",
+    "unit": "N·m",
+    "raw": "4.8 N·m",
+    "condition": "",
+    "id": "table_cell-8"
+   },
+   "id": "peak_torque@table_cell-8"
+  },
+  {
+   "key": "rated_speed",
+   "value": 260,
+   "unit": "rpm",
+   "raw": "260 rpm",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-10",
+    "row": "Rated speed",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.2181,
+      0.2631,
+      0.29036,
+      0.28125
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "rated_speed",
+    "value": "260",
+    "unit": "rpm",
+    "raw": "260 rpm",
+    "condition": "",
+    "id": "table_cell-10"
+   },
+   "id": "rated_speed@table_cell-10"
+  },
+  {
+   "key": "gear_ratio",
+   "value": 10,
+   "unit": ":1",
+   "raw": "10:1",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-12",
+    "row": "Gear ratio",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.2181,
+      0.2878,
+      0.25977,
+      0.30494
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "gear_ratio",
+    "value": "10",
+    "unit": ":1",
+    "raw": "10:1",
+    "condition": "",
+    "id": "table_cell-12"
+   },
+   "id": "gear_ratio@table_cell-12"
+  },
+  {
+   "key": "mass",
+   "value": 185,
+   "unit": "g",
+   "raw": "185 g",
+   "condition": null,
+   "cite": {
+    "id": "table_cell-14",
+    "row": "Weight",
+    "column": "Value"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.21745,
+      0.31099,
+      0.26953,
+      0.33165
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "mass",
+    "value": "185",
+    "unit": "g",
+    "raw": "185 g",
+    "condition": "",
+    "id": "table_cell-14"
+   },
+   "id": "mass@table_cell-14"
+  },
+  {
+   "key": "voltage_min",
+   "value": 18,
+   "unit": "V",
+   "raw": "18-28 V",
+   "condition": "V+ supply",
+   "cite": {
+    "id": "list_item-1"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.08398,
+      0.37802,
+      0.25065,
+      0.39315
+     ]
+    }
+   ],
+   "verdict": "dropped",
+   "reasons": [
+    "list_item-1's text carries none of 'voltage_min''s labels, nor does a label-only block right before it"
+   ],
+   "proposed": {
+    "key": "voltage_min",
+    "value": "18",
+    "unit": "V",
+    "raw": "18-28 V",
+    "condition": "V+ supply",
+    "id": "list_item-1"
+   },
+   "id": "voltage_min@list_item-1"
+  },
+  {
+   "key": "voltage_max",
+   "value": 28,
+   "unit": "V",
+   "raw": "18-28 V",
+   "condition": "V+ supply",
+   "cite": {
+    "id": "list_item-1"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.08398,
+      0.37802,
+      0.25065,
+      0.39315
+     ]
+    }
+   ],
+   "verdict": "dropped",
+   "reasons": [
+    "list_item-1's text carries none of 'voltage_max''s labels, nor does a label-only block right before it"
+   ],
+   "proposed": {
+    "key": "voltage_max",
+    "value": "28",
+    "unit": "V",
+    "raw": "18-28 V",
+    "condition": "V+ supply",
+    "id": "list_item-1"
+   },
+   "id": "voltage_max@list_item-1"
+  },
+  {
+   "key": "buses",
+   "value": [
+    "can"
+   ],
+   "unit": "",
+   "raw": "CAN H",
+   "condition": null,
+   "cite": {
+    "id": "list_item-3"
+   },
+   "grounding": [
+    {
+     "page": 1,
+     "box": [
+      0.08398,
+      0.41381,
+      0.2181,
+      0.42893
+     ]
+    }
+   ],
+   "verdict": "kept",
+   "reasons": [],
+   "proposed": {
+    "key": "buses",
+    "value": "can",
+    "unit": "",
+    "raw": "CAN H",
+    "condition": "",
+    "id": "list_item-3"
+   },
+   "id": "buses@list_item-3"
+  }
+ ]
+}

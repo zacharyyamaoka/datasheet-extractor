@@ -1,0 +1,7 @@
+{
+ "part_model": "KM70-10",
+ "fields": "fields/actuator.json",
+ "model": "claude-opus-5-5",
+ "recorded": "~/.cache/datasheet-extractor/eval/synthetic/03-simple-table/html/KM70-10/option1-claude (2026-10-29, rejudged 2026-11-05)",
+ "harness_case": "/home/bam/markdownify/harness/cases/03-simple-table/source.md"
+}

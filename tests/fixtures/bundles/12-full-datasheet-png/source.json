@@ -1,0 +1,13 @@
+{
+ "sha256": "129ba6a1333daf05eee93cd56cfd5fa53c06d0d0040874b0c8fa08b5ac5ad01b",
+ "bytes": 86985,
+ "media_type": "image/png",
+ "retrievals": [
+  {
+   "url": "https://example.com/km-series/12-full-datasheet.png",
+   "final_url": "https://example.com/km-series/12-full-datasheet.png",
+   "retrieved_at": "2026-10-29T21:05:00Z",
+   "http_status": null
+  }
+ ]
+}

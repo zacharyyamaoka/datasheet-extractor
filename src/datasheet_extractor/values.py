@@ -117,6 +117,10 @@ class Verdict:
     grounding: list
     reasons: list[str]
     proposed: dict                # the model's own row, verbatim
+    # The Locations of the words that print raw inside the cited block (locate.py), None when they were looked for
+    # and not found; written to values.json only once looked for (`located`), i.e. Option 1 and open mode.
+    raw_grounding: list | None = None
+    located: bool = False
 
     @property
     def kept(self) -> bool:
@@ -129,8 +133,10 @@ class Verdict:
                "condition": self.condition}
         if self.cite is not None:
             row["cite"] = self.cite
-        row.update({"grounding": self.grounding, "verdict": "kept" if self.kept else "dropped",
-                    "reasons": self.reasons, "proposed": self.proposed})
+        row["grounding"] = self.grounding
+        if self.located:
+            row["raw_grounding"] = self.raw_grounding
+        row.update({"verdict": "kept" if self.kept else "dropped", "reasons": self.reasons, "proposed": self.proposed})
         return row
 
 

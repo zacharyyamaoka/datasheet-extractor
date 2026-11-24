@@ -1,0 +1,13 @@
+{
+ "sha256": "d92af90c339730e04bfb3b03cbf5b1ce0652f4cc23103a0d46d19a8d010fc576",
+ "bytes": 1973,
+ "media_type": "text/html",
+ "retrievals": [
+  {
+   "url": "https://example.com/km-series/03-simple-table.html",
+   "final_url": "https://example.com/km-series/03-simple-table.html",
+   "retrieved_at": "2026-10-29T20:54:42Z",
+   "http_status": null
+  }
+ ]
+}
